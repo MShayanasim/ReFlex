@@ -26,27 +26,16 @@
 
         .header {
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 12px;
             margin-bottom: 24px;
             padding-bottom: 16px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .header h2 {
-            margin: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
-            background: linear-gradient(135deg, #818cf8, #c084fc);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .header svg {
-            width: 24px;
-            height: 24px;
-            color: #818cf8;
+        .header img {
+            width: 128px;
+            height: auto;
         }
 
         /* Toggle Switch styling */
@@ -121,13 +110,10 @@
 </head>
 <body>
     <div class="header">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <h2>ReFlex</h2>
+        <img src="reflex-icon-128.png" alt="ReFlex Logo" />
     </div>
     <div class="container">
-        <p class="desc">Anti-Gravity Dashboard</p>
+        <p class="desc">ReFlex Dashboard</p>
         <div class="toggle-container">
             <span class="toggle-label">Enable UI Overhaul</span>
             <label class="switch">

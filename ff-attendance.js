@@ -1,10 +1,10 @@
-// ff-attendance.js â€” Absent analytics overlay
+// ff-attendance.js — Absent analytics overlay
 // Appends a small bar above each attendance table. Never modifies original UI.
 
 let attTimer    = null;
 let attObserver = null;
 
-// â”€â”€ Entry point called by ff-observer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Entry point called by ff-observer ─────────────────────────────────────
 function runAttendance() {
     if (attObserver) { attObserver.disconnect(); attObserver = null; }
 
@@ -20,7 +20,7 @@ function runAttendance() {
     attObserver.observe(area, { childList: true, subtree: true });
 }
 
-// â”€â”€ Find & process every attendance table on the visible page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Find & process every attendance table on the visible page ─────────────
 function enhanceAttendanceTables() {
     document.querySelectorAll('table').forEach(table => {
         // Skip if already has our bar
@@ -38,14 +38,14 @@ function enhanceAttendanceTables() {
     });
 }
 
-// â”€â”€ Build and inject the info bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Build and inject the info bar ─────────────────────────────────────────
 function buildBar(table, presenceIdx, durationIdx) {
-    // â”€ detect credit hours from nearby heading â”€
+    // ─ detect credit hours from nearby heading ─
     const creditHours = detectCreditHours(table);
-    const maxAbsents  = creditHours * 3;   // 1crâ†’3h, 2crâ†’6h, 3crâ†’9h
-    const warnAt      = creditHours * 2;   // 1crâ†’2h, 2crâ†’4h, 3crâ†’6h
+    const maxAbsents  = creditHours * 3;   // 1cr→3h, 2cr→6h, 3cr→9h
+    const warnAt      = creditHours * 2;   // 1cr→2h, 2cr→4h, 3cr→6h
 
-    // â”€ count absent HOURS (each absent lecture Ã— its duration) â”€
+    // ─ count absent HOURS (each absent lecture × its duration) ─
     const dataRows = getDataRows(table);
     let absentHours = 0;
     dataRows.forEach(row => {
@@ -60,18 +60,18 @@ function buildBar(table, presenceIdx, durationIdx) {
     const absents = absentHours; // alias for readability below
     const danger  = absents >= warnAt;
 
-    // â”€ warning messages â”€
+    // ─ warning messages ─
     const WARNS = [
-        'Gang you are cooked! ðŸ”¥',
-        'Yikes. Talk to your teacher. ðŸ’€',
-        'Bro. Please just go to class. ðŸ˜­',
-        'At this point just drop it. ðŸ’€'
+        'Gang you are cooked! 💀',
+        'Yikes. Talk to your teacher. 💀',
+        'Bro. Please just go to class. 😭',
+        'At this point just drop it. 💀'
     ];
 
-    // â”€ detect current theme â”€
+    // ─ detect current theme ─
     const isDark = document.documentElement.classList.contains('ff-dark');
 
-    // â”€ build bar â”€
+    // ─ build bar ─
     const bar = document.createElement('div');
     bar.className = 'ff-att-bar';
     bar.style.cssText = [
@@ -133,12 +133,12 @@ function buildBar(table, presenceIdx, durationIdx) {
     table.parentNode.insertBefore(bar, table);
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ───────────────────────────────────────────────────────────────
 function getDataRows(table) {
     // Returns only data rows (skipping header)
     const tbody = table.querySelector('tbody');
     if (tbody) return Array.from(tbody.querySelectorAll('tr'));
-    // No tbody â€” skip first row (header)
+    // No tbody — skip first row (header)
     return Array.from(table.querySelectorAll('tr')).slice(1);
 }
 
@@ -159,14 +159,14 @@ function detectCreditHours(table) {
         node = node.parentElement;
     }
 
-    // â”€â”€ Strategy 1: look up exact credit hours from transcript data â”€â”€â”€â”€â”€â”€
+    // ── Strategy 1: look up exact credit hours from transcript data ──────
     const courseCode = (heading.match(/([A-Z]{2,4}\d{4})/i) || [])[1];
     if (courseCode && typeof window.ffGetCreditHours === 'function') {
         const fromTranscript = window.ffGetCreditHours(courseCode);
         if (fromTranscript !== null) return fromTranscript;
     }
 
-    // â”€â”€ Strategy 2: name-based heuristic (fallback) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Strategy 2: name-based heuristic (fallback) ──────────────────────
     const text = heading.toLowerCase();
     const code = (heading.match(/^([A-Z]{2,3})\d{4}/i) || [])[1]?.toUpperCase() || '';
 
@@ -175,7 +175,7 @@ function detectCreditHours(table) {
     return 3;
 }
 
-// â”€â”€ Cleanup (called by ff-observer tearDown) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Cleanup (called by ff-observer tearDown) ───────────────────────────────
 function tearDownAttendance() {
     if (attObserver) { attObserver.disconnect(); attObserver = null; }
     clearTimeout(attTimer);

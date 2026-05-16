@@ -124,6 +124,7 @@ const GRADE_COLOURS = {
     'C+': { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)',  text: '#92400e' },
     'C':  { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)',  text: '#92400e' },
     'C-': { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)',  text: '#92400e' },
+    'D+': { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',   text: '#991b1b' },
     'D':  { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',   text: '#991b1b' },
     'F':  { bg: 'rgba(239,68,68,0.15)',   border: 'rgba(239,68,68,0.4)',   text: '#7f1d1d' },
     'I':  { bg: 'rgba(156,163,175,0.15)', border: 'rgba(156,163,175,0.3)', text: '#4b5563' },
@@ -136,15 +137,16 @@ function gradeStyle(grade) {
 
 // GPA tiers (for projection)
 const GPA_TIERS = [
-    { label: 'A+',  gpa: 4.00, pct: 95 },
-    { label: 'A',   gpa: 4.00, pct: 90 },
-    { label: 'A-',  gpa: 3.67, pct: 85 },
-    { label: 'B+',  gpa: 3.33, pct: 80 },
-    { label: 'B',   gpa: 3.00, pct: 75 },
+    { label: 'A+',  gpa: 4.00, pct: 90 },
+    { label: 'A',   gpa: 4.00, pct: 86 },
+    { label: 'A-',  gpa: 3.67, pct: 82 },
+    { label: 'B+',  gpa: 3.33, pct: 78 },
+    { label: 'B',   gpa: 3.00, pct: 74 },
     { label: 'B-',  gpa: 2.67, pct: 70 },
-    { label: 'C+',  gpa: 2.33, pct: 65 },
-    { label: 'C',   gpa: 2.00, pct: 60 },
-    { label: 'C-',  gpa: 1.67, pct: 55 },
+    { label: 'C+',  gpa: 2.33, pct: 66 },
+    { label: 'C',   gpa: 2.00, pct: 62 },
+    { label: 'C-',  gpa: 1.67, pct: 58 },
+    { label: 'D+',  gpa: 1.33, pct: 54 },
     { label: 'D',   gpa: 1.00, pct: 50 },
     { label: 'F',   gpa: 0.00, pct: 0  },
 ];
@@ -353,19 +355,51 @@ function renderMarksDashboard(marksData, changedKeys) {
                 </div>
                 <p class="ff-cat-title">${cat.name}</p>
                 <div class="ff-card-scores">
-                    <div class="ff-score-col">
+                    <div class="ff-score-col ff-my-score-col" style="cursor:pointer; user-select:none;" title="Click to toggle between marks and weightage">
                         <span class="ff-score-label">MY SCORE</span>
-                        <span class="ff-score">${catObtained.toFixed(2)} / ${catTotal.toFixed(2)}</span>
-                        <span class="ff-score-sub">${catWtObtained.toFixed(2)} / ${catWeight.toFixed(1)} wt</span>
+                        <span class="ff-score ff-my-score-val" style="transition: opacity 0.15s ease-in-out;">${catObtained.toFixed(2)} / ${catTotal.toFixed(2)}</span>
                     </div>
                     ${hasAvg ? `
-                    <div class="ff-score-col right">
+                    <div class="ff-score-col right ff-avg-score-col" style="cursor:pointer; user-select:none;" title="Click to toggle between marks and weightage">
                         <span class="ff-score-label">CLASS AVG</span>
-                        <span class="ff-score-avg">${catAvgObtained.toFixed(2)} / ${catTotal.toFixed(2)}</span>
-                        <span class="ff-score-sub">${catAvgWtObtained.toFixed(2)} / ${catWeight.toFixed(1)} wt</span>
+                        <span class="ff-score-avg ff-avg-score-val" style="transition: opacity 0.15s ease-in-out;">${catAvgObtained.toFixed(2)} / ${catTotal.toFixed(2)}</span>
                     </div>` : ''}
                 </div>
             `;
+
+            let showMyWeightage = false;
+            const myScoreCol = card.querySelector('.ff-my-score-col');
+            const myScoreVal = card.querySelector('.ff-my-score-val');
+            if (myScoreCol && myScoreVal) {
+                myScoreCol.addEventListener('click', () => {
+                    myScoreVal.style.opacity = '0';
+                    setTimeout(() => {
+                        showMyWeightage = !showMyWeightage;
+                        myScoreVal.textContent = showMyWeightage 
+                            ? `${catWtObtained.toFixed(2)} / ${catWeight.toFixed(1)} wt` 
+                            : `${catObtained.toFixed(2)} / ${catTotal.toFixed(2)}`;
+                        myScoreVal.style.opacity = '1';
+                    }, 150);
+                });
+            }
+
+            if (hasAvg) {
+                let showAvgWeightage = false;
+                const avgScoreCol = card.querySelector('.ff-avg-score-col');
+                const avgScoreVal = card.querySelector('.ff-avg-score-val');
+                if (avgScoreCol && avgScoreVal) {
+                    avgScoreCol.addEventListener('click', () => {
+                        avgScoreVal.style.opacity = '0';
+                        setTimeout(() => {
+                            showAvgWeightage = !showAvgWeightage;
+                            avgScoreVal.textContent = showAvgWeightage 
+                                ? `${catAvgWtObtained.toFixed(2)} / ${catWeight.toFixed(1)} wt` 
+                                : `${catAvgObtained.toFixed(2)} / ${catTotal.toFixed(2)}`;
+                            avgScoreVal.style.opacity = '1';
+                        }, 150);
+                    });
+                }
+            }
 
             // Item rows
             const itemsTable = document.createElement('div');
@@ -449,6 +483,14 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
     const result = document.createElement('span');
     row.appendChild(result);
 
+    let showWeightage = false;
+    result.style.cursor = 'pointer';
+    result.title = 'Click to toggle between percentage and weightage';
+    result.addEventListener('click', () => {
+        showWeightage = !showWeightage;
+        update();
+    });
+
     function update() {
         const target = parseFloat(sel.value);
         const currentContrib = currentPct * (gradedWeight / 100);
@@ -460,13 +502,25 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
             result.className = 'ff-gpa-impossible';
             result.textContent = 'No remaining weight';
         } else {
-            const neededOnRemaining = ((target - currentContrib) / ungradedWeight) * 100;
+            const neededWeight = target - currentContrib;
+            const neededOnRemaining = (neededWeight / ungradedWeight) * 100;
+            const tierObj = GPA_TIERS.find(t=>t.pct===target);
+            const suffix = tierObj ? ` → ${tierObj.label} (${tierObj.gpa.toFixed(2)})` : '';
+
             if (neededOnRemaining > 100) {
                 result.className = 'ff-gpa-impossible';
-                result.textContent = `Impossible (need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}%)`;
+                if (showWeightage) {
+                    result.textContent = `Impossible (need ${neededWeight.toFixed(2)} weight on remaining ${ungradedWeight.toFixed(2)} weight)${suffix}`;
+                } else {
+                    result.textContent = `Impossible (need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}%)${suffix}`;
+                }
             } else {
                 result.className = 'ff-gpa-next';
-                result.textContent = `Need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}% → ${GPA_TIERS.find(t=>t.pct===target)?.label||''}  (${GPA_TIERS.find(t=>t.pct===target)?.gpa.toFixed(2)||''})`;
+                if (showWeightage) {
+                    result.textContent = `Need ${neededWeight.toFixed(2)} weight on remaining ${ungradedWeight.toFixed(2)} weight${suffix}`;
+                } else {
+                    result.textContent = `Need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}%${suffix}`;
+                }
             }
         }
     }

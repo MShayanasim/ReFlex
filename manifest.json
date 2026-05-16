@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ReFlex - Anti-Gravity UI",
+  "name": "ReFlex v1.0",
   "version": "1.0",
   "description": "Overhauls Marks and Transcript pages with a modern, glassmorphic aesthetic.",
   "permissions": ["storage", "tabs"],
