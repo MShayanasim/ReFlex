@@ -188,8 +188,9 @@ window.ffTearDownAttendance = tearDownAttendance;
 // Re-render bars whenever the user toggles dark/light so colours update live
 const _attThemeObs = new MutationObserver(() => {
     document.querySelectorAll('.ff-att-bar').forEach(el => el.remove());
+    // Unhide any rows that were previously hidden by the "Show Absents Only" filter
+    document.querySelectorAll('table tr').forEach(row => row.style.display = '');
     enhanceAttendanceTables();
 });
+
 _attThemeObs.observe(document.documentElement, { attributeFilter: ['class'] });
-
-

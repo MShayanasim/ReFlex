@@ -230,16 +230,20 @@ function buildSnapshotKey(courseName, catName, itemLabel) {
 }
 
 function diffAndSave(marksData, callback) {
-    // Build the keys we need to read: one per course
-    const courseKeys = marksData.map(c => SNAP_PREFIX + c.courseName);
-
-    chrome.storage.sync.get(courseKeys, stored => {
+    // Fetch ALL storage so we can safely garbage collect old semesters
+    chrome.storage.sync.get(null, allStored => {
         const writes  = {};
         const changed = new Set();
+        const activeKeys = new Set(marksData.map(c => SNAP_PREFIX + c.courseName));
 
+        // 1. Garbage Collection: Remove old courses no longer on the page
+        const keysToRemove = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX) && !activeKeys.has(k));
+        if (keysToRemove.length > 0) chrome.storage.sync.remove(keysToRemove);
+
+        // 2. Process current courses and find NEW/UPDATED grades
         marksData.forEach(course => {
             const storeKey  = SNAP_PREFIX + course.courseName;
-            const oldCourse = stored[storeKey] || {};
+            const oldCourse = allStored[storeKey] || {};
             const newCourse = {};
 
             course.categories.forEach(cat => {
@@ -248,7 +252,7 @@ function diffAndSave(marksData, callback) {
                     const val     = `${item.obtained}|${item.totalMarks}`;
                     newCourse[snapKey] = val;
 
-                    // Full key used by the UI badge lookup includes the course name
+                    // Full key used by the UI badge lookup
                     const uiKey = `${course.courseName}||${cat.name}||${item.label}`;
                     if (!(snapKey in oldCourse))          changed.add(uiKey + '|NEW');
                     else if (oldCourse[snapKey] !== val)  changed.add(uiKey + '|UPDATED');
@@ -258,10 +262,12 @@ function diffAndSave(marksData, callback) {
             writes[storeKey] = newCourse;
         });
 
+        // 3. Save new snapshot and trigger UI render
         chrome.storage.sync.set(writes);
         callback(changed);
     });
 }
+
 
 window.ffDiffAndSave  = diffAndSave;
 window.ffBuildKey     = buildSnapshotKey;
