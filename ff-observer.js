@@ -257,12 +257,23 @@ function diffAndSave(marksData, callback) {
                     
                     if (!(snapKey in oldCourse)) {
                         changed.add(uiKey + '|NEW');
-                    } else if (oldCourse[snapKey] !== val) {
-                        // If it was previously ungraded (null), show as NEW instead of UPDATED
-                        if (oldCourse[snapKey].startsWith('null|') && item.obtained !== null) {
-                            changed.add(uiKey + '|NEW');
-                        } else {
-                            changed.add(uiKey + '|UPDATED');
+                    } else {
+                        let oldValStr = oldCourse[snapKey];
+                        let [oldObtained, oldTotal] = oldValStr.split('|');
+                        
+                        // Handle backward compatibility where total was incorrectly saved as 'undefined'
+                        if (oldTotal === 'undefined') {
+                            oldTotal = String(item.total);
+                        }
+                        const normalizedOldVal = `${oldObtained}|${oldTotal}`;
+
+                        if (normalizedOldVal !== val) {
+                            // If it was previously ungraded (null), show as NEW instead of UPDATED
+                            if (oldObtained === 'null' && item.obtained !== null) {
+                                changed.add(uiKey + '|NEW');
+                            } else {
+                                changed.add(uiKey + '|UPDATED');
+                            }
                         }
                     }
                 });
