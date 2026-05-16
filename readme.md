@@ -42,7 +42,7 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 - **Graded vs. Remaining Breakdown** — A clear stats row always shows how much of your grade has been evaluated and how much of the final percentage is still unplayed.
 
 #### 📅 Attendance Page
-- **Absents Allowed Counter** — ReFlex calculates and displays exactly how many more hours you can afford to miss before dropping below the 75% threshold — directly above each course attendance table.
+- **Absents Allowed Counter** — ReFlex calculates and displays exactly how many more hours you can afford to miss before dropping below the 80% threshold — directly above each course attendance table.
 - **Live Absent Hours Warning** — Tracks your absent hours and warns you with bold status messages when you enter the danger zone.
 - **Show Absents Only Filter** — A dedicated button above each table lets you instantly filter to show only the dates you were absent, saving you from scrolling through long tables.
 
