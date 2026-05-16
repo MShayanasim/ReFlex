@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "ReFlex - Anti-Gravity UI",
+  "version": "1.0",
+  "description": "Overhauls Marks and Transcript pages with a modern, glassmorphic aesthetic.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["*://*.nu.edu.pk/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ReFlex Settings"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.nu.edu.pk/*"],
+      "css": ["styles.css"],
+      "js": ["ff-observer.js", "ff-attendance.js", "runMarks.js", "runTranscript.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "reflex-icon-16.png",
+    "24": "reflex-icon-24.png",
+    "48": "reflex-icon-48.png",
+    "128": "reflex-icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["reflex-icon.png", "reflex-icon-24.png", "reflex-icon-16.png"],
+      "matches": ["*://*.nu.edu.pk/*"]
+    }
+  ]
+}

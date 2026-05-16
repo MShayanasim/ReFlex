@@ -1,0 +1,1072 @@
+/* Faster Flex — styles.css v4 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+#ff-root {
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: #1e293b;
+    padding: 24px 28px 100px;
+    animation: ff-fade 0.35s ease;
+}
+@keyframes ff-fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.ff-header { margin-bottom: 24px; }
+.ff-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 4px;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────*/
+.ff-course-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+.ff-tab {
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    color: #64748b;
+    padding: 9px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.18s;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 90px;
+}
+.ff-tab:hover { background:#f8fafc; color:#334155; }
+.ff-tab.active {
+    background: #4f46e5;
+    color: #fff;
+    border-color: #4f46e5;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+}
+/* Course code — bold top line */
+.ff-tab-code {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: inherit;
+    letter-spacing: 0.02em;
+}
+/* Subject name — smaller muted second line */
+.ff-tab-name {
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: #94a3b8;
+    white-space: normal;
+    line-height: 1.3;
+    max-width: 130px;
+}
+.ff-tab.active .ff-tab-name { color: rgba(255,255,255,0.75); }
+
+
+/* ── Shared card ─────────────────────────────────────────── */
+.ff-progress-card,
+.ff-card,
+.ff-semester-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #e8edf3;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+/* No hover lift — cards stay flat */
+
+/* ── Progress card ───────────────────────────────────────── */
+.ff-progress-card { margin-bottom: 28px; }
+.ff-oa-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.ff-big-score-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 18px;
+}
+.ff-big-score {
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+}
+.ff-right-avg-text {
+    color: #94a3b8;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-align: right;
+    line-height: 1.4;
+}
+.ff-right-avg-text strong { color: #475569; font-weight: 600; }
+
+/* ── Dual-pointer bar ────────────────────────────────────── */
+.ff-bar-wrapper {
+    margin-bottom: 0;
+    padding-top: 30px; /* room for "my" label above */
+}
+.ff-bar-track {
+    position: relative;
+    width: 100%;
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: visible;
+}
+.ff-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #4f46e5);
+    border-radius: 10px;
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* shared pointer base */
+.ff-ptr {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* MY pointer — line drops DOWN from label above bar */
+.ff-ptr-me {
+    top: -28px; /* start above bar */
+}
+.ff-ptr-line-me {
+    width: 2px;
+    height: 40px; /* spans from label into bar */
+    background: #4f46e5;
+    border-radius: 2px;
+}
+.ff-ptr-label-me {
+    position: absolute;
+    top: -20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #4f46e5;
+    white-space: nowrap;
+}
+
+/* AVG pointer — line rises UP from label below bar */
+.ff-ptr-avg {
+    top: 12px; /* sits at bottom edge of bar */
+}
+.ff-ptr-line-avg {
+    width: 2px;
+    height: 20px;
+    background: #94a3b8;
+    border-radius: 2px;
+}
+.ff-ptr-label {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.ff-stats-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-top: 48px; /* clear avg label below bar */
+}
+.ff-stats-row strong { color: #1e293b; font-weight: 600; }
+
+/* ── Category cards grid ─────────────────────────────────── */
+.ff-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+}
+@media (max-width: 1300px) {
+    .ff-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 850px) {
+    .ff-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.ff-card-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.ff-weight-badge {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4f46e5;
+    background: rgba(79,70,229,0.08);
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+.ff-status-pill {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+.ff-status-pill.up  { background: rgba(34,197,94,0.12);  color: #15803d; }
+.ff-status-pill.down{ background: rgba(239,68,68,0.12);  color: #b91c1c; }
+.ff-cat-title {
+    margin: 0 0 20px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+.ff-card-scores {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 18px;
+}
+.ff-score-col { display: flex; flex-direction: column; }
+.ff-score-col.right { align-items: flex-end; }
+.ff-score-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 6px;
+}
+.ff-score     { font-size: 2rem;  font-weight: 700; color: #0f172a; line-height: 1; }
+.ff-score-avg { font-size: 1.6rem; font-weight: 600; color: #475569; line-height: 1; }
+.ff-score-sub { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; }
+
+.ff-card.ff-alert {
+    border-color: rgba(239,68,68,0.25);
+    background: rgba(254,242,242,0.5);
+}
+
+/* ── Sub-item rows ───────────────────────────────────────── */
+.ff-items-table {
+    border-top: 1px solid #f1f5f9;
+    padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ff-item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s;
+}
+/* Ensure label doesn't push weightage to extreme left */
+.ff-item-label {
+    min-width: 24px;
+    flex: 0 0 auto;
+}
+.ff-item-val {
+    min-width: 80px;
+}
+.ff-item-row.ff-item-below {
+    background: rgba(254,226,226,0.5);
+    border-left: 3px solid #ef4444;
+    padding-left: 8px;
+}
+.ff-item-label { font-weight: 500; color: #475569; }
+.ff-item-val   { font-weight: 600; color: #1e293b; }
+.ff-item-avg   { color: #94a3b8; min-width: 70px; text-align: right; }
+.ff-item-minmax {
+    color: #a855f7;
+    background: rgba(168, 85, 247, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+/* Per-item weightage pill */
+.ff-item-weightage {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #4f46e5;
+    background: rgba(79,70,229,0.07);
+    border: 1px solid rgba(79,70,229,0.15);
+    padding: 2px 7px;
+    border-radius: 5px;
+    white-space: nowrap;
+    cursor: help;
+}
+
+
+/* ── Warning icon ───────────────────────────────────────── */
+.ff-warn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ef4444;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    margin-right: 5px;
+    flex-shrink: 0;
+    font-style: normal;
+}
+
+/* ── NEW / UPDATED badges ───────────────────────────────── */
+.ff-badge-new {
+    background: #fef9c3;
+    color: #854d0e;
+    border: 1px solid #fde68a;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-right: 4px;
+    letter-spacing: 0.04em;
+}
+.ff-badge-upd {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-right: 4px;
+    letter-spacing: 0.04em;
+}
+
+/* ── Transcript semester card ────────────────────────────── */
+.ff-semester-card { margin-top: 24px; }
+.ff-sem-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.ff-sem-title  { font-size: 1.6rem; font-weight: 700; color: #0f172a; }
+.ff-sem-rings  { display: flex; gap: 18px; }
+.ff-ring {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 3px solid rgba(79,70,229,0.25);
+    background: rgba(79,70,229,0.04);
+    box-shadow: 0 0 12px rgba(79,70,229,0.12);
+}
+.ff-ring span  { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+.ff-ring small { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
+
+/* ── Course list ─────────────────────────────────────────── */
+.ff-course-list { display: flex; flex-direction: column; gap: 12px; }
+.ff-course-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+    transition: background 0.15s;
+}
+.ff-course-item:hover { background: #f1f5f9; }
+.ff-course-name { font-size: 1rem; font-weight: 600; color: #1e293b; margin-bottom: 5px; }
+.ff-course-meta { font-size: 0.85rem; color: #94a3b8; }
+.ff-weight-text {
+    color: #6366f1;
+    margin-left: 10px;
+    font-style: italic;
+    font-weight: 500;
+}
+/* SGPA contribution text */
+.ff-contrib-text {
+    display: inline-block;
+    margin-left: 10px;
+    font-size: 0.8rem;
+    color: #16a34a;
+    font-weight: 600;
+    background: rgba(22,163,74,0.08);
+    padding: 1px 7px;
+    border-radius: 5px;
+    cursor: help;
+}
+.ff-grade-badge {
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border: 1px solid;
+    min-width: 42px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 720px) {
+    .ff-big-score      { font-size: 2rem; }
+    .ff-sem-header     { flex-direction: column; gap: 14px; align-items: flex-start; }
+    .ff-course-item    { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .ff-grade-badge    { align-self: flex-start; }
+    .ff-cards-grid     { grid-template-columns: 1fr; }
+}
+
+/* ── GPA Projection ──────────────────────────────────────── */
+.ff-big-score {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+/* Inline grade badge next to the big % number */
+.ff-gpa-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,0.06);
+    color: #1e293b;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+/* Row below stats showing projected next threshold */
+.ff-gpa-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+}
+.ff-gpa-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+/* Compact tier picker */
+.ff-tier-sel {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #4f46e5;
+    background: rgba(79,70,229,0.07);
+    border: 1px solid rgba(79,70,229,0.2);
+    border-radius: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234f46e5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 22px;
+}
+.ff-tier-sel:hover { background-color: rgba(79,70,229,0.12); }
+/* "Need +X% → A- (3.67)" pill */
+.ff-gpa-next {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #4f46e5;
+    background: rgba(79,70,229,0.08);
+    border: 1px solid rgba(79,70,229,0.2);
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: help;
+    transition: background 0.15s;
+}
+.ff-gpa-next:hover {
+    background: rgba(79,70,229,0.14);
+}
+/* Already at A */
+.ff-gpa-top {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #10b981;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.25);
+    padding: 6px 14px;
+    border-radius: 20px;
+}
+/* Mathematically impossible */
+.ff-gpa-impossible {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #ef4444;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    padding: 6px 14px;
+    border-radius: 20px;
+}
+
+/* ── Global Sidebar Overhaul (Anti-Gravity Aesthetic) ────────────────────── */
+/* Only applies when the extension toggle is ON (html.ff-enabled) */
+
+/* Veil to completely hide native tables during load, preventing the FOUC flash */
+html.ff-veil-native .m-content > *:not(#ff-root) {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* The main sidebar container */
+html.ff-enabled #m_aside_left {
+    background: linear-gradient(180deg, #1e2a4a 0%, #1a2744 100%) !important;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Inner wrappers */
+html.ff-enabled .m-aside-menu {
+    background-color: transparent !important;
+}
+
+/* Compact navigation list — eliminate excess spacing */
+html.ff-enabled .m-menu__nav {
+    padding: 8px 0 !important;
+}
+
+/* Each menu item — tighter spacing, positioned for arrow */
+html.ff-enabled .m-menu__item {
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative !important;
+}
+
+/* Base style for every link — compact, contained */
+html.ff-enabled .m-menu__item > .m-menu__link {
+    padding: 9px 18px !important;
+    margin: 2px 8px !important;
+    border-radius: 8px !important;
+    transition: background-color 0.2s ease, color 0.2s ease !important;
+    background-color: transparent !important;
+    overflow: hidden !important;
+}
+
+/* Hover — soft light glow, stays inside the pill */
+html.ff-enabled .m-menu__item > .m-menu__link:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Active/Open — slightly brighter */
+html.ff-enabled .m-menu__item--active > .m-menu__link,
+html.ff-enabled .m-menu__item--open > .m-menu__link {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: none !important;
+}
+
+/* ── Arrow pointer on active item (triangle on right edge) ──────────── */
+html.ff-enabled .m-menu__item--active::after,
+html.ff-enabled .m-menu__item--open::after {
+    content: '' !important;
+    position: absolute !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 0 !important;
+    height: 0 !important;
+    border-top: 12px solid transparent !important;
+    border-bottom: 12px solid transparent !important;
+    border-right: 12px solid #f2f3f8 !important; /* matches the main content bg */
+    z-index: 10 !important;
+}
+
+/* Hide the native 'here' indicator */
+html.ff-enabled .m-menu__item-here {
+    display: none !important;
+}
+
+/* Icons — softer, smaller */
+html.ff-enabled .m-menu__link-icon {
+    color: rgba(255, 255, 255, 0.45) !important;
+    font-size: 1.15rem !important;
+    transition: color 0.2s ease !important;
+    min-width: 28px !important;
+}
+
+html.ff-enabled .m-menu__item > .m-menu__link:hover .m-menu__link-icon,
+html.ff-enabled .m-menu__item--active > .m-menu__link .m-menu__link-icon {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Text — clean Inter, compact */
+html.ff-enabled .m-menu__link-text {
+    color: rgba(255, 255, 255, 0.6) !important;
+    font-weight: 500 !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.01em !important;
+    transition: color 0.2s ease !important;
+    white-space: nowrap !important;
+}
+
+html.ff-enabled .m-menu__item > .m-menu__link:hover .m-menu__link-text,
+html.ff-enabled .m-menu__item--active > .m-menu__link .m-menu__link-text {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* ── Topbar Toggle Switch ────────────────────────────────────────────────── */
+#ff-topbar-toggle {
+    display: flex;
+    align-items: center;
+    margin-right: 16px;
+    height: 100%;
+}
+
+.ff-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    border-radius: 24px;
+    background: #334155;
+    cursor: pointer;
+    transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ff-switch.on {
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    border-color: transparent;
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.ff-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ff-switch.on .ff-switch-thumb {
+    transform: translateX(20px);
+}
+
+.ff-switch-thumb img {
+    width: 10px;
+    height: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.ff-switch.on .ff-switch-thumb img {
+    opacity: 1;
+}
+
+
+/* ── Theme Toggle Button ─────────────────────────────────────────────────── */
+.ff-theme-switch {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.25s, transform 0.2s;
+    flex-shrink: 0;
+}
+.ff-theme-switch:hover {
+    background: rgba(255,255,255,0.18);
+    transform: rotate(20deg);
+}
+.ff-theme-switch.dark {
+    background: rgba(250, 204, 21, 0.12);
+    border-color: rgba(250, 204, 21, 0.35);
+}
+.ff-theme-icon { font-size: 14px; line-height: 1; }
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* ── DARK MODE — html.ff-dark ─────────────────────────────────────────────*/
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+html.ff-dark body,
+html.ff-dark .m-wrapper,
+html.ff-dark .m-content,
+html.ff-dark .m-body {
+    background-color: #0f1629 !important;
+    color: #cbd5e1 !important;
+}
+
+html.ff-dark .m-header,
+html.ff-dark #m_header,
+html.ff-dark [class*="m-header"] {
+    background: #111827 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.4) !important;
+}
+html.ff-dark .m-brand,
+html.ff-dark .m-brand__logo,
+html.ff-dark .m-stack__item.m-brand {
+    background: #111827 !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
+}
+html.ff-dark .m-topbar .m-nav__link-text,
+html.ff-dark .m-topbar span,
+html.ff-dark .m-topbar__welcome { color: #64748b !important; }
+html.ff-dark .m-topbar [class*="username"],
+html.ff-dark .m-topbar [class*="name"] { color: #e2e8f0 !important; }
+html.ff-dark .m-topbar .m-nav__link-icon { color: #64748b !important; }
+
+html.ff-dark #m_aside_left,
+html.ff-dark .m-aside-left {
+    background: linear-gradient(180deg, #0d1323 0%, #0a1020 100%) !important;
+    border-right: 1px solid rgba(255,255,255,0.05) !important;
+}
+
+html.ff-dark .m-portlet,
+html.ff-dark .m-portlet__body,
+html.ff-dark .card,
+html.ff-dark .panel {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.07) !important;
+    color: #cbd5e1 !important;
+}
+html.ff-dark .m-portlet__head,
+html.ff-dark .card-header,
+html.ff-dark .panel-heading {
+    background: #1a2540 !important;
+    border-bottom-color: rgba(255,255,255,0.07) !important;
+}
+html.ff-dark .m-portlet__head-title,
+html.ff-dark .m-portlet__head-title h3,
+html.ff-dark .m-portlet__head-text { color: #e2e8f0 !important; }
+
+html.ff-dark table { color: #cbd5e1 !important; background: #1e293b !important; }
+html.ff-dark th, html.ff-dark thead th, html.ff-dark thead td {
+    background: #263447 !important;
+    color: #94a3b8 !important;
+    border-color: rgba(255,255,255,0.08) !important;
+}
+html.ff-dark td { border-color: rgba(255,255,255,0.06) !important; color: #cbd5e1 !important; }
+html.ff-dark tr:nth-child(even) td { background: rgba(255,255,255,0.02) !important; }
+html.ff-dark tr:hover td { background: rgba(255,255,255,0.04) !important; }
+html.ff-dark .table-bordered { border-color: rgba(255,255,255,0.08) !important; }
+
+html.ff-dark h1, html.ff-dark h2, html.ff-dark h3,
+html.ff-dark h4, html.ff-dark h5, html.ff-dark h6 { color: #e2e8f0 !important; }
+html.ff-dark .m-widget__title,
+html.ff-dark .m-widget__desc { color: #cbd5e1 !important; }
+
+html.ff-dark a:not([class*="m-menu"]):not([class*="btn"]):not([class*="ff-"]) { color: #818cf8 !important; }
+html.ff-dark a:not([class*="m-menu"]):not([class*="btn"]):not([class*="ff-"]):hover { color: #a5b4fc !important; }
+
+html.ff-dark input,
+html.ff-dark select,
+html.ff-dark textarea,
+html.ff-dark .form-control {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: #e2e8f0 !important;
+}
+html.ff-dark input::placeholder,
+html.ff-dark textarea::placeholder { color: #64748b !important; }
+html.ff-dark select option { background: #1e293b; color: #e2e8f0; }
+
+html.ff-dark .btn-default,
+html.ff-dark .btn-secondary {
+    background: #263447 !important;
+    border-color: rgba(255,255,255,0.1) !important;
+    color: #e2e8f0 !important;
+}
+
+html.ff-dark .m-subheader,
+html.ff-dark .m-subheader__title { background: #0f1629 !important; color: #e2e8f0 !important; }
+
+html.ff-dark .alert, html.ff-dark .m-alert {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: #cbd5e1 !important;
+}
+
+html.ff-dark ::-webkit-scrollbar-track { background: #0f1629 !important; }
+html.ff-dark ::-webkit-scrollbar-thumb { background: #334155 !important; border-radius: 4px; }
+html.ff-dark ::-webkit-scrollbar-thumb:hover { background: #475569 !important; }
+
+/* ── ReFlex Dashboard — Dark Overrides ───────────────────────────────────── */
+html.ff-dark #ff-root { color: #cbd5e1 !important; }
+html.ff-dark .ff-header h2 { color: #f1f5f9 !important; }
+
+html.ff-dark .ff-tab {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: #94a3b8 !important;
+}
+html.ff-dark .ff-tab:hover { background: #263447 !important; color: #e2e8f0 !important; }
+html.ff-dark .ff-tab.active { background: #4f46e5 !important; color: #fff !important; border-color: #4f46e5 !important; }
+html.ff-dark .ff-tab-name { color: #64748b !important; }
+html.ff-dark .ff-tab.active .ff-tab-name { color: rgba(255,255,255,0.65) !important; }
+
+html.ff-dark .ff-progress-card,
+html.ff-dark .ff-card,
+html.ff-dark .ff-semester-card {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.07) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+}
+html.ff-dark .ff-card.ff-alert { background: rgba(127,29,29,0.25) !important; border-color: rgba(239,68,68,0.25) !important; }
+html.ff-dark .ff-big-score { color: #f1f5f9 !important; }
+html.ff-dark .ff-oa-label { color: #64748b !important; }
+html.ff-dark .ff-right-avg-text { color: #64748b !important; }
+html.ff-dark .ff-right-avg-text strong { color: #94a3b8 !important; }
+html.ff-dark .ff-stats-row { color: #64748b !important; }
+html.ff-dark .ff-stats-row strong { color: #cbd5e1 !important; }
+html.ff-dark .ff-bar-track { background: #334155 !important; }
+html.ff-dark .ff-gpa-row { border-top-color: rgba(255,255,255,0.06) !important; }
+html.ff-dark .ff-gpa-label { color: #64748b !important; }
+html.ff-dark .ff-gpa-badge { color: #e2e8f0 !important; border-color: rgba(255,255,255,0.06) !important; }
+html.ff-dark .ff-tier-sel {
+    background-color: rgba(79,70,229,0.15) !important;
+    color: #818cf8 !important;
+    border-color: rgba(79,70,229,0.3) !important;
+}
+html.ff-dark .ff-cat-title { color: #e2e8f0 !important; }
+html.ff-dark .ff-score { color: #f1f5f9 !important; }
+html.ff-dark .ff-score-avg { color: #94a3b8 !important; }
+html.ff-dark .ff-score-label,
+html.ff-dark .ff-score-sub { color: #64748b !important; }
+html.ff-dark .ff-items-table { border-top-color: rgba(255,255,255,0.06) !important; }
+html.ff-dark .ff-item-row { color: #94a3b8 !important; }
+html.ff-dark .ff-item-row.ff-item-below { background: rgba(127,29,29,0.2) !important; }
+html.ff-dark .ff-item-label { color: #cbd5e1 !important; }
+html.ff-dark .ff-item-val   { color: #f1f5f9 !important; }
+html.ff-dark .ff-item-avg   { color: #64748b !important; }
+html.ff-dark .ff-item-weightage {
+    background: rgba(79,70,229,0.15) !important;
+    border-color: rgba(79,70,229,0.25) !important;
+    color: #818cf8 !important;
+}
+html.ff-dark .ff-badge-new {
+    background: rgba(234,179,8,0.15) !important;
+    color: #fbbf24 !important;
+    border-color: rgba(234,179,8,0.3) !important;
+}
+html.ff-dark .ff-badge-upd {
+    background: rgba(249,115,22,0.12) !important;
+    color: #fb923c !important;
+    border-color: rgba(249,115,22,0.3) !important;
+}
+html.ff-dark .ff-sem-header { border-bottom-color: rgba(255,255,255,0.07) !important; }
+html.ff-dark .ff-sem-title { color: #f1f5f9 !important; }
+html.ff-dark .ff-ring {
+    background: rgba(79,70,229,0.12) !important;
+    border-color: rgba(79,70,229,0.3) !important;
+}
+html.ff-dark .ff-ring span { color: #e2e8f0 !important; }
+html.ff-dark .ff-ring small { color: #64748b !important; }
+html.ff-dark .ff-course-item {
+    background: #263447 !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+html.ff-dark .ff-course-item:hover { background: #2d3f55 !important; }
+html.ff-dark .ff-course-name { color: #e2e8f0 !important; }
+html.ff-dark .ff-course-meta { color: #64748b !important; }
+
+/* Sidebar pointer arrow in dark mode */
+html.ff-dark.ff-enabled .m-menu__item--active::after,
+html.ff-dark.ff-enabled .m-menu__item--open::after {
+    border-right-color: #0f1629 !important;
+}
+
+/* ── Dark Mode: Override portal inline-style white backgrounds on rows ───── */
+/* The portal sets background:#fff directly on <tr> via inline style.         */
+/* :is(tr)[style] targets any tr that HAS an inline style attribute.          */
+html.ff-dark tr[style] {
+    background-color: #1e293b !important;
+    color: #cbd5e1 !important;
+}
+html.ff-dark tr[style]:nth-child(even) {
+    background-color: #1a2840 !important;
+}
+html.ff-dark tr[style]:hover {
+    background-color: #263447 !important;
+}
+/* Inline styles on td itself */
+html.ff-dark td[style],
+html.ff-dark th[style] {
+    background-color: #1e293b !important;
+    color: #cbd5e1 !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+/* The highlighted/coloured rows on the Grade Report page */
+html.ff-dark td[style*="background"],
+html.ff-dark tr[style*="background"] td {
+    color: #e2e8f0 !important;
+}
+
+/* Transcript native page — specific white portlet wrappers */
+html.ff-dark .m-portlet--skin-light,
+html.ff-dark .m-portlet--light {
+    background: #1e293b !important;
+}
+
+/* ── Dark Mode: Attendance percentage bar text (native) ──────────────────── */
+html.ff-dark .m-list-timeline__text,
+html.ff-dark .progress-bar,
+html.ff-dark [class*="progress"] { color: #e2e8f0 !important; }
+
+/* Attendance page course header (bold white title bar) */
+html.ff-dark [class*="portlet__head"][style],
+html.ff-dark [class*="portlet__body"][style] {
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+
+/* Grade Report: coloured grade cells — preserve colour but ensure text visible */
+html.ff-dark td[style*="color"] { opacity: 0.9; }
+html.ff-dark td[bgcolor],
+html.ff-dark tr[bgcolor] { background-color: #263447 !important; }
+
+/* ── Dark Mode: NUCLEAR tr fix — catches class-based AND inline row whites ── */
+/* The Transcript uses Metronic DataTable row classes, not inline styles.      */
+html.ff-dark table tr,
+html.ff-dark table tr:nth-child(even),
+html.ff-dark table tr:nth-child(odd),
+html.ff-dark .m-datatable__row,
+html.ff-dark .m-datatable__row--even,
+html.ff-dark .m-datatable__row--odd,
+html.ff-dark .odd,
+html.ff-dark .even {
+    background-color: #1e293b !important;
+    color: #cbd5e1 !important;
+}
+html.ff-dark table tr:nth-child(even),
+html.ff-dark .m-datatable__row--even,
+html.ff-dark .even {
+    background-color: #1a2840 !important;
+}
+html.ff-dark table tr:hover,
+html.ff-dark .m-datatable__row:hover {
+    background-color: #263447 !important;
+}
+/* All cells inherit from row, and also override if they have own bg */
+html.ff-dark table tr td,
+html.ff-dark table tr th,
+html.ff-dark .m-datatable__cell {
+    background-color: inherit !important;
+    color: #cbd5e1 !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+/* Header row stays a slightly different shade */
+html.ff-dark table thead tr,
+html.ff-dark table tr:first-child:has(th) {
+    background-color: #263447 !important;
+}
+html.ff-dark table thead tr th,
+html.ff-dark table thead tr td {
+    background-color: #263447 !important;
+    color: #94a3b8 !important;
+}
+/* The Transcript outer container divs that may carry white bg */
+html.ff-dark .m-datatable,
+html.ff-dark .m-datatable__table,
+html.ff-dark .m-datatable__wrap,
+html.ff-dark [class*="datatable"] {
+    background: #1e293b !important;
+    color: #cbd5e1 !important;
+}
+/* Scrollable table wrappers */
+html.ff-dark .table-responsive,
+html.ff-dark .dataTables_wrapper,
+html.ff-dark .dataTables_scrollBody,
+html.ff-dark .dataTables_scrollHead {
+    background: #1e293b !important;
+}
+/* Transcript specific texts */
+html.ff-dark small,
+html.ff-dark .m-portlet__head-text small,
+html.ff-dark .m-portlet__head-text span {
+    color: #94a3b8 !important;
+}
+html.ff-dark strong,
+html.ff-dark b,
+html.ff-dark .m-portlet__head-text strong,
+html.ff-dark .m-portlet__head-text b {
+    color: inherit !important;
+}
+
+/* ── Transcript Page Styles ────────────────────────────────── */
+.ff-transcript-card {
+    padding: 32px 36px;
+}
+.ff-transcript-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px dashed #e2e8f0;
+}
+.ff-transcript-row:last-child {
+    border-bottom: none;
+}
+.ff-tr-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+}
+.ff-tr-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 0.8rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.ff-tr-code {
+    color: #94a3b8;
+    font-weight: 500;
+}
+.ff-tr-sep {
+    color: #cbd5e1;
+}
+.ff-tr-weight {
+    color: #3b82f6;
+    font-weight: 500;
+}
+.ff-tr-contrib {
+    color: #22c55e;
+    font-weight: 500;
+}
+
+html.ff-dark .ff-transcript-row { border-color: rgba(255,255,255,0.08); }
+html.ff-dark .ff-tr-name { color: #f1f5f9; }
+html.ff-dark .ff-tr-code { color: #64748b; }
+html.ff-dark .ff-tr-sep { color: #475569; }
+html.ff-dark .ff-tr-weight { color: #60a5fa; }
+html.ff-dark .ff-tr-contrib { color: #4ade80; }
