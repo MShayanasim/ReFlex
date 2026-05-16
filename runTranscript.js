@@ -1,4 +1,4 @@
-﻿function runTranscript() {
+function runTranscript() {
     const tables = document.querySelectorAll('table');
     let semesters = [];
 
@@ -19,17 +19,43 @@
 
         if (headerRowIdx === -1) return;
 
-        // Find semester name
-        let semName = "Semester";
-        let container = table.closest('.m-portlet');
-        if (container) {
-            let titleEl = container.querySelector('.m-portlet__head-text, h3, h4');
-            if (titleEl) {
-                semName = titleEl.innerText.trim();
-                // Extract just the semester part (e.g. "Fall 2025") from "Fall 2025 Cr. Att:18..."
-                semName = semName.split(/Cr\.?\s*Att/i)[0].trim();
+                // Find semester name — try multiple strategies
+        let semName = '';
+        const semPattern = /\b(Fall|Spring|Summer)\s+\d{4}\b/i;
+
+        // Strategy 1: look at rows before header in the same table
+        for (let i = 0; i < headerRowIdx; i++) {
+            const text = rows[i].innerText || rows[i].textContent || '';
+            const m = text.match(semPattern);
+            if (m) { semName = m[0]; break; }
+            else {
+                const cleaned = text.split(/Cr\.?\s*Att/i)[0].trim().split('\n')[0].trim();
+                if (cleaned && cleaned.length > 3 && cleaned.length < 30) {
+                    semName = cleaned;
+                }
             }
         }
+
+        // Strategy 2: Look at previous sibling elements in the DOM
+        if (!semName) {
+            let curr = table;
+            for (let up = 0; up < 3 && curr && curr !== document.body && !semName; up++) {
+                let sibling = curr.previousElementSibling;
+                while (sibling && !semName) {
+                    const text = sibling.innerText || sibling.textContent || '';
+                    const m = text.match(semPattern);
+                    if (m) { semName = m[0]; break; }
+                    if (sibling.tagName === 'TABLE' || sibling.querySelector('table')) break;
+                    sibling = sibling.previousElementSibling;
+                }
+                curr = curr.parentElement;
+            }
+        }
+
+        if (!semName) semName = 'Semester ' + (semesters.length + 1);
+
+
+        if (!semName) semName = 'Semester ' + (semesters.length + 1);
 
         const sem = { name: semName, courses: [] };
         

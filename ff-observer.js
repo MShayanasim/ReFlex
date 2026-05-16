@@ -37,7 +37,13 @@ function startScanWatcher() {
         }, DEBOUNCE_MS);
     });
 
-    scanObserver.observe(document.body, { childList: true, subtree: true });
+    if (document.body) {
+        scanObserver.observe(document.body, { childList: true, subtree: true });
+    } else {
+        document.addEventListener("DOMContentLoaded", () => {
+            if (scanObserver) scanObserver.observe(document.body, { childList: true, subtree: true });
+        });
+    }
 }
 
 function checkTablesReady(url) {
@@ -117,7 +123,9 @@ function startGuardWatcher(url) {
         }
     });
 
-    guardObserver.observe(document.body, { childList: true, subtree: true });
+    if (document.body) {
+        guardObserver.observe(document.body, { childList: true, subtree: true });
+    }
 }
 
 // ── SPA Navigation Observer ───────────────────────────────────────────────

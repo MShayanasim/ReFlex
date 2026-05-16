@@ -59,8 +59,13 @@ function ffInjectTopbarToggle() {
         ffUIEnabled = !ffUIEnabled;
         sw.classList.toggle('on', ffUIEnabled);
         sw.title = ffUIEnabled ? 'Switch to Original UI' : 'Switch to ReFlex UI';
-        chrome.storage.sync.set({ flexUiEnabled: ffUIEnabled });
-
+        
+        // ONLY the storage call goes in the try-catch
+        try {
+            chrome.storage.sync.set({ flexUiEnabled: ffUIEnabled });
+        } catch (e) {
+            console.warn('ReFlex: Could not save UI state (Extension context invalidated). Please refresh the page.');
+        }
         if (!ffUIEnabled) {
             // Show original UI: remove our root, reveal hidden native elements
             document.getElementById('ff-root')?.remove();
@@ -83,13 +88,20 @@ function ffInjectTopbarToggle() {
     themeBtn.className = 'ff-theme-switch' + (isDark ? ' dark' : '');
     themeBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
     themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? '☀️' : '🌙'}</span>`;
-    themeBtn.addEventListener('click', () => {
+        themeBtn.addEventListener('click', () => {
         const nowDark = document.documentElement.classList.toggle('ff-dark');
         themeBtn.classList.toggle('dark', nowDark);
         themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? '☀️' : '🌙';
         themeBtn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-        chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' });
+        
+        // ONLY the storage call goes in the try-catch
+        try {
+            chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' });
+        } catch (e) {
+            console.warn('ReFlex: Could not save theme state (Extension context invalidated). Please refresh the page.');
+        }
     });
+
 
     wrapper.appendChild(sw);
     wrapper.appendChild(themeBtn);
@@ -538,35 +550,26 @@ function renderTranscriptDashboard(semesters) {
             let weightPct = '';
             let contribPts = '';
             if (cr > 0 && sem.semCrHrs > 0) {
-                weightPct = ((cr / sem.semCrHrs) * 100).toFixed(2) + '%';
+                weightPct = ((cr / sem.semCrHrs) * 100).toFixed(1) + '% of SGPA';
                 if (pts > 0) {
-                    contribPts = ((pts * cr) / sem.semCrHrs).toFixed(3);
+                    contribPts = ((pts * cr) / sem.semCrHrs).toFixed(3) + ' pts to SGPA';
                 }
             }
 
-            const weightHtml   = weightPct   ? '<span class="ff-tr-weight">Weight: ' + weightPct + ' of SGPA</span>'           : '';
-            const contribHtml  = contribPts  ? '<span class="ff-tr-contrib">Contributes ' + contribPts + ' pts to SGPA</span>' : '';
-            
-            // Build subtitle with pipe separators if multiple elements exist
-            let metaElements = [`<span class="ff-tr-code">${c.code} - ${cr} CrHrs</span>`];
-            if (weightHtml) metaElements.push(weightHtml);
-            if (contribHtml) metaElements.push(contribHtml);
-            
-            const metaHtml = metaElements.join('<span class="ff-tr-sep">&nbsp;|&nbsp;</span>');
-
             const item = document.createElement('div');
             item.className = 'ff-transcript-row';
-            item.innerHTML = `
-                <div class="ff-tr-left">
-                    <div class="ff-tr-name">${c.name}</div>
-                    <div class="ff-tr-meta">
-                        ${metaHtml}
-                    </div>
-                </div>
-                <div class="ff-grade-badge" style="background:${gs.bg};border-color:${gs.border};color:${gs.text}">
-                    ${c.grade || '—'}
-                </div>
-            `;
+            item.innerHTML =
+                '<div class="ff-tr-left">' +
+                    '<div class="ff-tr-name">' + c.name + '</div>' +
+                    '<div class="ff-tr-meta">' +
+                        '<span class="ff-tr-code">' + c.code + ' • ' + cr + ' Cr</span>' +
+                        (weightPct ? '<span class="ff-tr-sep">|</span><span class="ff-tr-weight">Weight: ' + weightPct + '</span>' : '') +
+                        (contribPts ? '<span class="ff-tr-sep">|</span><span class="ff-tr-contrib">Contributes ' + contribPts + '</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<div class="ff-grade-badge" style="background:' + gs.bg + ';border-color:' + gs.border + ';color:' + gs.text + '">' +
+                    (c.grade || '—') +
+                '</div>';
             courseList.appendChild(item);
         });
     }
