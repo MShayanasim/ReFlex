@@ -71,4 +71,29 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 
 ---
 
+## 🚀 Installation (Chromium Browsers)
+
+Since the extension is currently in beta/development, you can easily install it manually on any Chromium-based browser (Google Chrome, Microsoft Edge, Brave, etc.) by following these steps:
+
+### Step 1: Download the Extension
+1. Go to the [Releases page](../../releases) (or click the green **Code** button and select **Download ZIP**).
+2. Download the latest `ReFlex v1.0.zip` file.
+3. Extract the downloaded ZIP file to an easily accessible folder on your computer.
+
+### Step 2: Load into Your Browser
+1. Open your browser and navigate to the extensions page:
+   - **Chrome / Brave:** Type `chrome://extensions/` in the URL bar and press Enter.
+   - **Edge:** Type `edge://extensions/` in the URL bar and press Enter.
+2. Turn on **Developer mode** (usually a toggle switch located in the top-right or bottom-left corner of the extensions page).
+3. Click the **Load unpacked** button that appears.
+4. Select the folder where you extracted the ReFlex files in Step 1.
+
+### Step 3: Enjoy! 🎉
+1. The ReFlex extension should now appear in your list of installed extensions.
+2. Log in to the [FAST-NUCES Flex Portal](https://flexstudent.nu.edu.pk/) and navigate to your **Marks** or **Transcript** page to see the new UI in action!
+
+> **Note:** Whenever you download a newer version of ReFlex in the future, just replace the files in your folder and click the **↻ (Refresh)** icon on the extension card in your browser to apply the updates.
+
+---
+
 **Built with 🖤 at FAST-NUCES Karachi.**
