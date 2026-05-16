@@ -572,6 +572,7 @@ html.ff-enabled .m-menu__item > .m-menu__link {
     transition: background-color 0.2s ease, color 0.2s ease !important;
     background-color: transparent !important;
     overflow: hidden !important;
+    width: auto !important;
 }
 
 /* Hover — soft light glow, stays inside the pill */
