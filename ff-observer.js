@@ -249,13 +249,22 @@ function diffAndSave(marksData, callback) {
             course.categories.forEach(cat => {
                 cat.items.forEach(item => {
                     const snapKey = buildSnapshotKey(course.courseName, cat.name, item.label);
-                    const val     = `${item.obtained}|${item.totalMarks}`;
+                    const val     = `${item.obtained}|${item.total}`;
                     newCourse[snapKey] = val;
 
                     // Full key used by the UI badge lookup
                     const uiKey = `${course.courseName}||${cat.name}||${item.label}`;
-                    if (!(snapKey in oldCourse))          changed.add(uiKey + '|NEW');
-                    else if (oldCourse[snapKey] !== val)  changed.add(uiKey + '|UPDATED');
+                    
+                    if (!(snapKey in oldCourse)) {
+                        changed.add(uiKey + '|NEW');
+                    } else if (oldCourse[snapKey] !== val) {
+                        // If it was previously ungraded (null), show as NEW instead of UPDATED
+                        if (oldCourse[snapKey].startsWith('null|') && item.obtained !== null) {
+                            changed.add(uiKey + '|NEW');
+                        } else {
+                            changed.add(uiKey + '|UPDATED');
+                        }
+                    }
                 });
             });
 

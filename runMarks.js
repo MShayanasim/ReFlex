@@ -63,10 +63,13 @@ function runMarks() {
         }
         let currentCat = null;
 
-        const getNum = (name, cells) => {
+        const getNumOrNull = (name, cells) => {
             const idx = hCells.indexOf(name);
-            if (idx === -1) return 0;
-            return parseFloat(cells[idx]?.textContent) || 0;
+            if (idx === -1) return null;
+            const text = cells[idx]?.textContent.trim();
+            if (!text || text === '-') return null;
+            const val = parseFloat(text);
+            return isNaN(val) ? null : val;
         };
         const getText = (name, cells) => {
             const idx = hCells.indexOf(name);
@@ -119,10 +122,10 @@ function runMarks() {
             if (label.toLowerCase() === 'total') continue;
 
             const cellsArr = Array.from(cells);
-            const weight   = getNum('weightage', cellsArr);
-            const obtained = getNum('obtained marks', cellsArr) || getNum('obtained', cellsArr);
-            const total    = getNum('total marks', cellsArr) || 100;
-            const avg      = getNum('average', cellsArr);
+            const weight   = getNumOrNull('weightage', cellsArr) || 0;
+            const obtained = getNumOrNull('obtained marks', cellsArr) ?? getNumOrNull('obtained', cellsArr);
+            const total    = getNumOrNull('total marks', cellsArr) || 100;
+            const avg      = getNumOrNull('average', cellsArr);
             const minMarks = getText('minimum', cellsArr);
             const maxMarks = getText('maximum', cellsArr);
 

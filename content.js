@@ -216,9 +216,11 @@ function renderMarksDashboard(marksData, changedKeys) {
         let totalObtained = 0, totalWeight = 0;
         course.categories.forEach(cat => {
             cat.items.forEach(item => {
-                const contrib = item.weight > 0 ? (item.obtained / item.total) * item.weight : 0;
-                totalObtained += contrib;
-                totalWeight += item.weight;
+                if (item.obtained !== null && item.obtained !== undefined) {
+                    const contrib = item.weight > 0 ? (item.obtained / item.total) * item.weight : 0;
+                    totalObtained += contrib;
+                    totalWeight += item.weight;
+                }
             });
         });
         const overallPct = totalWeight > 0 ? (totalObtained / totalWeight * 100) : 0;
@@ -253,19 +255,21 @@ function renderMarksDashboard(marksData, changedKeys) {
         let totalAvgObtained = 0;
         // Compute key stats
         let gradedWeight = 0; // weight of items that have actually been scored
+        let avgGradedWeight = 0; // weight of items that have average
         course.categories.forEach(cat => {
             cat.items.forEach(item => {
-                if (item.weight > 0 && item.total > 0) {
+                if (item.weight > 0 && item.total > 0 && item.obtained !== null && item.obtained !== undefined) {
                     gradedWeight += item.weight;
-                    if (item.avg !== undefined && item.avg !== null) {
-                        totalAvgObtained += (item.avg / item.total) * item.weight;
-                    }
+                }
+                if (item.weight > 0 && item.total > 0 && item.avg !== null && item.avg !== undefined) {
+                    totalAvgObtained += (item.avg / item.total) * item.weight;
+                    avgGradedWeight += item.weight;
                 }
             });
         });
         const ungradedWeight = Math.max(0, 100 - gradedWeight);
 
-        const classAvgPct = totalWeight > 0 ? (totalAvgObtained / totalWeight * 100) : 0;
+        const classAvgPct = avgGradedWeight > 0 ? (totalAvgObtained / avgGradedWeight * 100) : 0;
         const tierGpa = tier.gpa.toFixed(2);
         const gs = gradeStyle(tier.label);
 
@@ -300,7 +304,7 @@ function renderMarksDashboard(marksData, changedKeys) {
             </div>
             <div class="ff-stats-row">
                 <span>Graded to Date: <strong>${totalObtained.toFixed(2)} / ${gradedWeight.toFixed(2)} wt</strong></span>
-                ${classAvgPct > 0 ? `<span>Class Average: <strong>${totalAvgObtained.toFixed(2)} / ${gradedWeight.toFixed(2)} wt</strong></span>` : ''}
+                ${classAvgPct > 0 ? `<span>Class Average: <strong>${totalAvgObtained.toFixed(2)} / ${avgGradedWeight.toFixed(2)} wt</strong></span>` : ''}
             </div>
 
         `;
@@ -326,22 +330,38 @@ function renderMarksDashboard(marksData, changedKeys) {
             if (!cat.items || cat.items.length === 0) return;
 
             let catObtained = 0, catTotal = 0, catWeight = 0;
-            let catAvgObtained = 0, hasAvg = false;
+            let catAvgObtained = 0, catAvgTotal = 0, catAvgWeight = 0;
+            let catTotalWeight = 0;
+            let comparableObtained = 0, comparableAvg = 0;
+            let hasAvg = false;
+
             cat.items.forEach(item => {
-                catObtained += item.obtained;
-                catTotal    += item.total;
-                catWeight   += item.weight;
-                if (item.avg > 0) { catAvgObtained += item.avg; hasAvg = true; }
+                catTotalWeight += item.weight;
+                if (item.obtained !== null && item.obtained !== undefined) {
+                    catObtained += item.obtained;
+                    catTotal    += item.total;
+                    catWeight   += item.weight;
+                }
+                if (item.avg !== null && item.avg !== undefined) {
+                    catAvgObtained += item.avg;
+                    catAvgTotal    += item.total;
+                    catAvgWeight   += item.weight;
+                    hasAvg = true;
+                }
+                if (item.obtained !== null && item.obtained !== undefined && item.avg !== null && item.avg !== undefined) {
+                    comparableObtained += item.obtained;
+                    comparableAvg += item.avg;
+                }
             });
             const catPct = catTotal > 0 ? (catObtained / catTotal * 100) : 0;
-            const catAvgPct = (hasAvg && catTotal > 0) ? (catAvgObtained / catTotal * 100) : 0;
+            const catAvgPct = (hasAvg && catAvgTotal > 0) ? (catAvgObtained / catAvgTotal * 100) : 0;
             const isBelow = hasAvg && catPct < catAvgPct;
 
             // Weightage contribution: how many of the final % they earned
             const catWtObtained = catWeight > 0 && catTotal > 0 ? (catObtained / catTotal * catWeight) : 0;
-            const catAvgWtObtained = catWeight > 0 && catTotal > 0 ? (catAvgObtained / catTotal * catWeight) : 0;
+            const catAvgWtObtained = catAvgWeight > 0 && catAvgTotal > 0 ? (catAvgObtained / catAvgTotal * catAvgWeight) : 0;
 
-            const catDiff = hasAvg ? (catObtained - catAvgObtained) : null;
+            const catDiff = hasAvg ? (comparableObtained - comparableAvg) : null;
             const diffSign = catDiff !== null ? (catDiff >= 0 ? '+' : '') : '';
             const diffColor = catDiff !== null ? (catDiff >= 0 ? '#16a34a' : '#dc2626') : '';
 
@@ -350,7 +370,7 @@ function renderMarksDashboard(marksData, changedKeys) {
 
             card.innerHTML = `
                 <div class="ff-card-top-row">
-                    <span style="font-size:0.78rem;font-weight:600;color:#94a3b8;">${catWeight.toFixed(1)}% of overall</span>
+                    <span style="font-size:0.78rem;font-weight:600;color:#94a3b8;">${catTotalWeight.toFixed(1)}% of overall</span>
                     ${catDiff !== null ? `<span style="font-size:0.85rem;font-weight:700;color:${diffColor};background:${catDiff>=0?'rgba(22,163,74,0.1)':'rgba(220,38,38,0.1)'};padding:3px 10px;border-radius:20px;">${diffSign}${catDiff.toFixed(2)}</span>` : ''}
                 </div>
                 <p class="ff-cat-title">${cat.name}</p>
@@ -362,7 +382,7 @@ function renderMarksDashboard(marksData, changedKeys) {
                     ${hasAvg ? `
                     <div class="ff-score-col right ff-avg-score-col" style="cursor:pointer; user-select:none;" title="Click to toggle between marks and weightage">
                         <span class="ff-score-label">CLASS AVG</span>
-                        <span class="ff-score-avg ff-avg-score-val" style="transition: opacity 0.15s ease-in-out;">${catAvgObtained.toFixed(2)} / ${catTotal.toFixed(2)}</span>
+                        <span class="ff-score-avg ff-avg-score-val" style="transition: opacity 0.15s ease-in-out;">${catAvgObtained.toFixed(2)} / ${catAvgTotal.toFixed(2)}</span>
                     </div>` : ''}
                 </div>
             `;
@@ -393,8 +413,8 @@ function renderMarksDashboard(marksData, changedKeys) {
                         setTimeout(() => {
                             showAvgWeightage = !showAvgWeightage;
                             avgScoreVal.textContent = showAvgWeightage 
-                                ? `${catAvgWtObtained.toFixed(2)} / ${catWeight.toFixed(1)} wt` 
-                                : `${catAvgObtained.toFixed(2)} / ${catTotal.toFixed(2)}`;
+                                ? `${catAvgWtObtained.toFixed(2)} / ${catAvgWeight.toFixed(1)} wt` 
+                                : `${catAvgObtained.toFixed(2)} / ${catAvgTotal.toFixed(2)}`;
                             avgScoreVal.style.opacity = '1';
                         }, 150);
                     });
@@ -406,9 +426,10 @@ function renderMarksDashboard(marksData, changedKeys) {
             itemsTable.className = 'ff-items-table';
 
             cat.items.forEach(item => {
-                const itemPct = item.total > 0 ? (item.obtained / item.total * 100) : 0;
-                const avgPct  = (item.avg && item.total > 0) ? (item.avg / item.total * 100) : null;
-                const isItemBelow = avgPct !== null && itemPct < avgPct;
+                const obtainedStr = (item.obtained !== null && item.obtained !== undefined) ? item.obtained : '-';
+                const itemPct = (item.total > 0 && item.obtained !== null && item.obtained !== undefined) ? (item.obtained / item.total * 100) : 0;
+                const avgPct  = (item.avg !== null && item.avg !== undefined && item.total > 0) ? (item.avg / item.total * 100) : null;
+                const isItemBelow = avgPct !== null && item.obtained !== null && item.obtained !== undefined && itemPct < avgPct;
 
                 // Change detection badges
                 const courseKey = `${course.courseName}||${cat.name}||${item.label}`;
@@ -432,8 +453,8 @@ function renderMarksDashboard(marksData, changedKeys) {
                         ${badge}${itemName}
                     </span>
                     <span class="ff-item-weightage" title="Contributes ${item.weight}% to final grade" style="flex: 0 0 35px; text-align: center;">${item.weight}%</span>
-                    <span class="ff-item-val" style="flex: 0 0 65px; text-align: right;">${item.obtained} / ${item.total}</span>
-                    <span class="ff-item-avg" style="flex: 0 0 55px; text-align: right;">${avgPct !== null ? `avg ${item.avg.toFixed ? item.avg.toFixed(1) : item.avg}` : ''}</span>
+                    <span class="ff-item-val" style="flex: 0 0 65px; text-align: right;">${obtainedStr} / ${item.total}</span>
+                    <span class="ff-item-avg" style="flex: 0 0 55px; text-align: right;">${item.avg !== null && item.avg !== undefined ? `avg ${item.avg.toFixed ? item.avg.toFixed(1) : item.avg}` : ''}</span>
                     <span style="flex: 0 0 100px; text-align: right;">${minMaxHtml}</span>
                 `;
                 itemsTable.appendChild(row);
