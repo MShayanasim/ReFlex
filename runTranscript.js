@@ -85,9 +85,11 @@ function runTranscript() {
             const grade = getCell('grade');
             const points = getCell('points');
             const crhrs = getCell('crdhrs');
+            const remarks = getCell('remarks');
+            const type = getCell('type');
 
             if (code && name) {
-                sem.courses.push({ code, name, grade, points, crhrs });
+                sem.courses.push({ code, name, grade, points, crhrs, remarks, type });
             }
         }
         

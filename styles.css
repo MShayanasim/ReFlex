@@ -887,8 +887,21 @@ html.ff-dark .ff-badge-upd {
     color: #fb923c !important;
     border-color: rgba(249,115,22,0.3) !important;
 }
-html.ff-dark .ff-sem-header { border-bottom-color: rgba(255,255,255,0.07) !important; }
-html.ff-dark .ff-sem-title { color: #f1f5f9 !important; }
+
+html.ff-dark .ff-grade-badge,
+html.ff-dark .ff-gpa-badge {
+    filter: brightness(1.75) saturate(1.2) !important;
+}
+
+html.ff-dark .ff-sem-header { 
+    border-bottom-color: rgba(255,255,255,0.07) !important; 
+    background: transparent !important;
+    width: 100% !important;
+}
+
+html.ff-dark .ff-sem-title { 
+    color: #f1f5f9 !important;
+}
 html.ff-dark .ff-ring {
     background: rgba(79,70,229,0.12) !important;
     border-color: rgba(79,70,229,0.3) !important;
@@ -1025,6 +1038,28 @@ html.ff-dark .m-portlet__head-text strong,
 html.ff-dark .m-portlet__head-text b {
     color: inherit !important;
 }
+
+/* Override hardcoded black text in native transcript tables */
+html.ff-dark table th *, 
+html.ff-dark table td * {
+    color: #cbd5e1 !important;
+}
+html.ff-dark [style*="color: black"],
+html.ff-dark [style*="color: #000"] {
+    color: #cbd5e1 !important;
+}
+
+/* Aggressive override for any hidden black text in the native table headers */
+html.ff-dark .m-portlet__head,
+html.ff-dark .m-portlet__head * {
+    color: #cbd5e1 !important;
+}
+html.ff-dark table thead th,
+html.ff-dark table thead th * {
+    color: #cbd5e1 !important;
+}
+
+
 
 /* ── Transcript Page Styles ────────────────────────────────── */
 .ff-transcript-card {

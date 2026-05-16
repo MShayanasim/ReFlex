@@ -486,14 +486,19 @@ function renderTranscriptDashboard(semesters) {
     header.innerHTML = `<h2>Transcript Dashboard</h2>`;
     root.appendChild(header);
 
-    // Pre-calculate running points and SGPA/CGPA for all semesters
+        // Pre-calculate running points and SGPA/CGPA for all semesters
     let runningPoints = 0, runningCrHrs = 0;
     semesters.forEach(sem => {
         let semPoints = 0, semCrHrs = 0;
         sem.courses.forEach(c => {
             const cr = parseFloat(c.crhrs) || 0;
             const pts = parseFloat(c.points) || 0;
-            if (cr > 0 && c.grade && c.grade !== '-' && c.grade !== 'NC') {
+            const grade = (c.grade || '').trim().toUpperCase();
+            const remarks = (c.remarks || '').trim().toUpperCase();
+            const type = (c.type || '').trim().toUpperCase();
+
+            // Ignore incomplete, withdrawn, or non-credit courses
+            if (cr > 0 && grade && grade !== '-' && grade !== 'I' && grade !== 'W' && grade !== 'NC' && remarks !== 'NC' && type !== 'NON CREDIT') {
                 semPoints += pts * cr;
                 semCrHrs  += cr;
                 runningPoints += pts * cr;
@@ -507,6 +512,7 @@ function renderTranscriptDashboard(semesters) {
         sem.cgpa = runningCrHrs > 0 ? (runningPoints / runningCrHrs).toFixed(2) : '—';
         sem.semCrHrs = semCrHrs;
     });
+
 
     // Create Semester Tabs
     const tabsRow = document.createElement('div');
@@ -526,7 +532,7 @@ function renderTranscriptDashboard(semesters) {
         
         const sem = semesters[index];
         mainCard.innerHTML = `
-            <div class="ff-sem-header" style="align-items: center; margin-bottom: 30px;">
+            <div class="ff-sem-header" style="align-items: center; margin-bottom: 30px; background: transparent !important; width: 100%;">
                 <span class="ff-sem-title" style="font-size: 1.4rem;">${sem.name}</span>
                 <div class="ff-sem-rings">
                     <div class="ff-ring" title="Semester GPA">
