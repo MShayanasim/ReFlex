@@ -9,7 +9,7 @@ function runTranscript() {
         let headerRowIdx = -1;
         let hCells = [];
         for (let i = 0; i < rows.length; i++) {
-            const cells = Array.from(rows[i].querySelectorAll('th, td')).map(c => c.innerText.trim().toLowerCase());
+            const cells = Array.from(rows[i].querySelectorAll('th, td')).map(c => c.textContent.trim().toLowerCase());
             if (cells.includes('code') && (cells.includes('course name') || cells.includes('course'))) {
                 headerRowIdx = i;
                 hCells = cells;
@@ -54,9 +54,6 @@ function runTranscript() {
 
         if (!semName) semName = 'Semester ' + (semesters.length + 1);
 
-
-        if (!semName) semName = 'Semester ' + (semesters.length + 1);
-
         const sem = { name: semName, courses: [] };
         
         for (let i = headerRowIdx + 1; i < rows.length; i++) {
@@ -69,15 +66,15 @@ function runTranscript() {
                     // Fallbacks if exactly "course name" or "crdhrs" aren't found
                     if (name === 'course name') {
                         const fallIdx = hCells.findIndex(h => h.includes('course'));
-                        return fallIdx !== -1 ? cells[fallIdx]?.innerText.trim() : '';
+                        return fallIdx !== -1 ? cells[fallIdx]?.textContent.trim() : '';
                     }
                     if (name === 'crdhrs') {
                         const fallIdx = hCells.findIndex(h => h.includes('cr'));
-                        return fallIdx !== -1 ? cells[fallIdx]?.innerText.trim() : '';
+                        return fallIdx !== -1 ? cells[fallIdx]?.textContent.trim() : '';
                     }
                     return '';
                 }
-                return cells[idx]?.innerText.trim() || '';
+                return cells[idx]?.textContent.trim() || '';
             };
 
             const code = getCell('code');

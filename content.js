@@ -297,9 +297,10 @@ function renderMarksDashboard(marksData, changedKeys) {
                 </div>
             </div>
             <div class="ff-stats-row">
-                <span>Graded to Date: <strong>${gradedWeight.toFixed(2)}%</strong></span>
-                ${classAvgPct > 0 ? `<span>Class Average: <strong>${totalAvgObtained.toFixed(2)} / ${gradedWeight}</strong></span>` : ''}
+                <span>Graded to Date: <strong>${totalObtained.toFixed(2)} / ${gradedWeight.toFixed(2)} wt</strong></span>
+                ${classAvgPct > 0 ? `<span>Class Average: <strong>${totalAvgObtained.toFixed(2)} / ${gradedWeight.toFixed(2)} wt</strong></span>` : ''}
             </div>
+
         `;
 
         // GPA projection row
@@ -386,13 +387,20 @@ function renderMarksDashboard(marksData, changedKeys) {
 
                 const row = document.createElement('div');
                 row.className = 'ff-item-row' + (isItemBelow ? ' ff-item-below' : '');
+                let itemName = item.label;
+                if (!isNaN(itemName) || itemName.length <= 2) {
+                    itemName = cat.name + ' #' + itemName;
+                }
+
                 row.innerHTML = `
-                    ${isItemBelow ? '<i class="ff-warn-icon">!</i>' : ''}
-                    <span class="ff-item-label">${badge}${item.label}</span>
-                    <span class="ff-item-weightage" title="Contributes ${item.weight}% to final grade">${item.weight}%</span>
-                    <span class="ff-item-val">${item.obtained} / ${item.total}</span>
-                    ${avgPct !== null ? `<span class="ff-item-avg">avg ${item.avg.toFixed ? item.avg.toFixed(1) : item.avg}</span>` : ''}
-                    ${minMaxHtml}
+                    <span class="ff-item-label" style="display: flex; align-items: center; flex: 1; min-width: 120px;">
+                        ${isItemBelow ? '<i class="ff-warn-icon">!</i>' : ''}
+                        ${badge}${itemName}
+                    </span>
+                    <span class="ff-item-weightage" title="Contributes ${item.weight}% to final grade" style="flex: 0 0 35px; text-align: center;">${item.weight}%</span>
+                    <span class="ff-item-val" style="flex: 0 0 65px; text-align: right;">${item.obtained} / ${item.total}</span>
+                    <span class="ff-item-avg" style="flex: 0 0 55px; text-align: right;">${avgPct !== null ? `avg ${item.avg.toFixed ? item.avg.toFixed(1) : item.avg}` : ''}</span>
+                    <span style="flex: 0 0 100px; text-align: right;">${minMaxHtml}</span>
                 `;
                 itemsTable.appendChild(row);
             });
