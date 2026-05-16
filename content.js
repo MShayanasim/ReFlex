@@ -333,6 +333,8 @@ function renderMarksDashboard(marksData, changedKeys) {
             let catAvgObtained = 0, catAvgTotal = 0, catAvgWeight = 0;
             let catTotalWeight = 0;
             let comparableObtained = 0, comparableAvg = 0;
+            let catWtObtained = 0;
+            let catAvgWtObtained = 0;
             let hasAvg = false;
 
             cat.items.forEach(item => {
@@ -341,11 +343,17 @@ function renderMarksDashboard(marksData, changedKeys) {
                     catObtained += item.obtained;
                     catTotal    += item.total;
                     catWeight   += item.weight;
+                    if (item.total > 0) {
+                        catWtObtained += (item.obtained / item.total) * item.weight;
+                    }
                 }
                 if (item.avg !== null && item.avg !== undefined) {
                     catAvgObtained += item.avg;
                     catAvgTotal    += item.total;
                     catAvgWeight   += item.weight;
+                    if (item.total > 0) {
+                        catAvgWtObtained += (item.avg / item.total) * item.weight;
+                    }
                     hasAvg = true;
                 }
                 if (item.obtained !== null && item.obtained !== undefined && item.avg !== null && item.avg !== undefined) {
@@ -356,10 +364,6 @@ function renderMarksDashboard(marksData, changedKeys) {
             const catPct = catTotal > 0 ? (catObtained / catTotal * 100) : 0;
             const catAvgPct = (hasAvg && catAvgTotal > 0) ? (catAvgObtained / catAvgTotal * 100) : 0;
             const isBelow = hasAvg && catPct < catAvgPct;
-
-            // Weightage contribution: how many of the final % they earned
-            const catWtObtained = catWeight > 0 && catTotal > 0 ? (catObtained / catTotal * catWeight) : 0;
-            const catAvgWtObtained = catAvgWeight > 0 && catAvgTotal > 0 ? (catAvgObtained / catAvgTotal * catAvgWeight) : 0;
 
             const catDiff = hasAvg ? (comparableObtained - comparableAvg) : null;
             const diffSign = catDiff !== null ? (catDiff >= 0 ? '+' : '') : '';
