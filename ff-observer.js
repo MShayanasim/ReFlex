@@ -132,27 +132,46 @@ function startGuardWatcher(url) {
 
 // ── SPA Navigation Observer ───────────────────────────────────────────────
 function syncSidebar() {
-    const currentPath = location.pathname.toLowerCase();
-    document.querySelectorAll('.m-menu__item').forEach(li => {
-        li.classList.remove('m-menu__item--active', 'm-menu__item--open');
-        const link = li.querySelector('a');
-        if (link && link.href) {
+    const doSync = () => {
+        const currentUrl = location.href.toLowerCase();
+        
+        // Flex uses both hash routes (#/Student/Home) and standard routes (/Student/Home).
+        // This perfectly normalizes them to extract just the meaningful path (student/home).
+        const extractRoute = (url) => {
             try {
-                const linkPath = new URL(link.href).pathname.toLowerCase();
-                // Home is exactly '/' or '/student/home' etc.
-                if (linkPath === currentPath || (currentPath === '/' && (linkPath === '' || linkPath === '/'))) {
-                    li.classList.add('m-menu__item--active', 'm-menu__item--open');
-                } else if (currentPath.length > 2 && linkPath.length > 2 && (currentPath.startsWith(linkPath) || linkPath.startsWith(currentPath))) {
+                const u = new URL(url);
+                let path = u.pathname + u.hash;
+                path = path.replace(/#/g, '').replace(/^\/+/, '').replace(/\/+$/, '').split('?')[0].toLowerCase();
+                if (path === '' || path === 'student') return 'student/home';
+                return path;
+            } catch (e) { return ''; }
+        };
+
+        const currentRoute = extractRoute(currentUrl);
+
+        document.querySelectorAll('.m-menu__item').forEach(li => {
+            li.classList.remove('m-menu__item--active', 'm-menu__item--open');
+            const link = li.querySelector('a');
+            if (link && link.href) {
+                const linkRoute = extractRoute(link.href);
+                // Strict equality guarantees "Marks" doesn't overlap with "Marks PLO Report"
+                if (currentRoute === linkRoute && currentRoute !== '') {
                     li.classList.add('m-menu__item--active', 'm-menu__item--open');
                 }
-            } catch(e) {}
-        }
-    });
+            }
+        });
+    };
+    
+    doSync();
+    // Angular router can sometimes wipe our classes during its digest cycle moments after navigation.
+    // Staggered timeouts ensure our highlights stick permanently.
+    setTimeout(doSync, 50);
+    setTimeout(doSync, 200);
+    setTimeout(doSync, 600);
 }
 
 function handleNavChange() {
     syncSidebar();
-    window.ffInjectTopbarToggle && window.ffInjectTopbarToggle();
 
     const url = location.href.toLowerCase();
     const key = url.includes('marks')       ? 'marks'
@@ -162,7 +181,10 @@ function handleNavChange() {
 
     const samePageAlreadyDone =
         url === lastUrl && key === lastRunKey && document.getElementById('ff-root');
-    if (samePageAlreadyDone) return;
+    if (samePageAlreadyDone) {
+        window.ffInjectTopbarToggle && window.ffInjectTopbarToggle();
+        return;
+    }
 
     const changed = url !== lastUrl || key !== lastRunKey;
     lastUrl    = url;
@@ -172,6 +194,7 @@ function handleNavChange() {
         // Navigated away to a normal page — lift the veil immediately and tear down
         document.documentElement.classList.remove('ff-veil-native');
         tearDown();
+        window.ffInjectTopbarToggle && window.ffInjectTopbarToggle();
         return;
     }
 
@@ -184,6 +207,8 @@ function handleNavChange() {
         }
 
         tearDown();
+        window.ffInjectTopbarToggle && window.ffInjectTopbarToggle();
+
         startScanWatcher();
         // Immediate check — page may already be fully loaded with no pending mutations
         const curUrl = location.href.toLowerCase();
@@ -196,6 +221,7 @@ function handleNavChange() {
 
 function tearDown() {
     clearTimeout(debounceTimer);
+    if (window.ffTopbarRetry) { clearInterval(window.ffTopbarRetry); window.ffTopbarRetry = null; }
     if (scanObserver)  { scanObserver.disconnect();  scanObserver  = null; }
     if (guardObserver) { guardObserver.disconnect(); guardObserver = null; }
     document.getElementById('ff-root')?.remove();

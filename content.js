@@ -46,7 +46,23 @@ function ffInjectTopbarToggle() {
         '#m_header_topbar .m-nav,' +
         '.m-topbar__nav'
     );
-    if (!nav) return;
+    
+    if (!nav) {
+        // Retry if not found (SPA might still be rendering)
+        if (!window.ffTopbarRetry) {
+            window.ffTopbarRetry = setInterval(() => {
+                if (document.getElementById('ff-topbar-controls')) {
+                    clearInterval(window.ffTopbarRetry);
+                    window.ffTopbarRetry = null;
+                } else if (document.querySelector('.m-topbar__nav.m-nav, .m-topbar .m-nav, #m_header_topbar .m-nav, .m-topbar__nav')) {
+                    clearInterval(window.ffTopbarRetry);
+                    window.ffTopbarRetry = null;
+                    ffInjectTopbarToggle();
+                }
+            }, 500);
+        }
+        return;
+    }
 
     const wrapper = document.createElement('li');
     wrapper.id = 'ff-topbar-controls';
@@ -633,7 +649,7 @@ function renderTranscriptDashboard(semesters) {
         const sem = semesters[index];
         mainCard.innerHTML = `
             <div class="ff-sem-header" style="align-items: center; margin-bottom: 30px; background: transparent !important; width: 100%;">
-                <span class="ff-sem-title" style="font-size: 1.4rem;">${sem.name}</span>
+                <span class="ff-sem-title" style="font-size: 1.4rem;">${esc(sem.name)}</span>
                 <div class="ff-sem-rings">
                     <div class="ff-ring" title="Semester GPA">
                         <span>${sem.sgpa}</span><small>SGPA</small>

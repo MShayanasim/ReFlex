@@ -3,7 +3,7 @@
   "name": "ReFlex v1.0",
   "version": "1.0",
   "minimum_chrome_version": "105",
-  "description": "Redesigns FAST-NUCES Flex portal with a premium dashboard for Marks, Transcript, and Attendance — featuring dark mode, GPA projections, and grade change tracking.",
+  "description": "Redesigns the FAST-NUCES Flex portal with a premium dashboard, dark mode, GPA projections, and live grade change tracking.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["*://*.nu.edu.pk/*"],
   "action": {
