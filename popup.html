@@ -106,6 +106,60 @@
         input:checked + .slider:before {
             transform: translateX(20px);
         }
+
+        .desc {
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface-color);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .footer {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .credits {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .credits p {
+            margin: 4px 0;
+        }
+
+        .credits a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            padding: 6px 12px;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--accent-hover);
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .credits a:hover {
+            background: rgba(99, 102, 241, 0.2);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -123,6 +177,14 @@
         </div>
         <div class="footer">
             Refresh the portal page to see changes.
+        </div>
+        
+        <div class="credits">
+            <p>By Muhammad Shayan Asim</p>
+            <p>Fast NUCES Karachi</p>
+            <a href="https://github.com/shayan-asim10/ReFlex" target="_blank" rel="noopener noreferrer">
+                ⭐ Star the repo on GitHub!
+            </a>
         </div>
     </div>
     <script src="popup.js"></script>
