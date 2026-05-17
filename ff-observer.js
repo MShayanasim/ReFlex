@@ -1,10 +1,12 @@
 // ff-observer.js — SPA watcher + debounced DOM trigger + persistent guard
 
-let lastUrl      = location.href;
-let lastRunKey   = null;
-let debounceTimer = null;
-let guardObserver = null;   // watches for #ff-root being removed
-let scanObserver  = null;   // watches for tables to appear (debounced)
+(function() {
+    'use strict';
+    let lastUrl      = location.href;
+    let lastRunKey   = null;
+    let debounceTimer = null;
+    let guardObserver = null;   // watches for #ff-root being removed
+    let scanObserver  = null;   // watches for tables to appear (debounced)
 
 // ── Debounced DOM watcher ─────────────────────────────────────────────────
 /**
@@ -214,8 +216,6 @@ function watchNavigation() {
     history.pushState    = (...a) => { _push(...a);    handleNavChange(); };
     history.replaceState = (...a) => { _replace(...a); handleNavChange(); };
 
-    setInterval(handleNavChange, 800);
-
     // Handle the page we're already on
     handleNavChange();
 }
@@ -224,6 +224,7 @@ function watchNavigation() {
 // Storage layout: one key per course  →  ff_snap_CS1004, ff_snap_EL1005 …
 // Each course key holds ~500–800 bytes max, nowhere near the 8KB sync limit.
 const SNAP_PREFIX = 'ff_snap_';
+const SCHEMA_VERSION = 1;
 
 function buildSnapshotKey(courseName, catName, itemLabel) {
     return `${catName}||${itemLabel}`;
@@ -232,13 +233,30 @@ function buildSnapshotKey(courseName, catName, itemLabel) {
 function diffAndSave(marksData, callback) {
     // Fetch ALL storage so we can safely garbage collect old semesters
     chrome.storage.sync.get(null, allStored => {
-        const writes  = {};
+        if (chrome.runtime.lastError) {
+            console.warn('ReFlex: Could not read storage.', chrome.runtime.lastError.message);
+            callback(new Set());
+            return;
+        }
+
+        // Schema Versioning Check
+        if (allStored.ff_schema_version !== SCHEMA_VERSION) {
+            const keysToWipe = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX));
+            if (keysToWipe.length > 0) chrome.storage.sync.remove(keysToWipe);
+            allStored = {};
+        }
+
+        const writes  = { ff_schema_version: SCHEMA_VERSION };
         const changed = new Set();
         const activeKeys = new Set(marksData.map(c => SNAP_PREFIX + c.courseName));
 
         // 1. Garbage Collection: Remove old courses no longer on the page
         const keysToRemove = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX) && !activeKeys.has(k));
-        if (keysToRemove.length > 0) chrome.storage.sync.remove(keysToRemove);
+        if (keysToRemove.length > 0) {
+            chrome.storage.sync.remove(keysToRemove, () => {
+                if (chrome.runtime.lastError) console.warn('ReFlex: GC remove failed.', chrome.runtime.lastError.message);
+            });
+        }
 
         // 2. Process current courses and find NEW/UPDATED grades
         marksData.forEach(course => {
@@ -283,12 +301,18 @@ function diffAndSave(marksData, callback) {
         });
 
         // 3. Save new snapshot and trigger UI render
-        chrome.storage.sync.set(writes);
-        callback(changed);
+        chrome.storage.sync.set(writes, () => {
+            if (chrome.runtime.lastError) {
+                console.warn('ReFlex: Sync storage quota exceeded, falling back to local.', chrome.runtime.lastError.message);
+                chrome.storage.local.set(writes);
+            }
+            callback(changed);
+        });
     });
 }
 
 
-window.ffDiffAndSave  = diffAndSave;
-window.ffBuildKey     = buildSnapshotKey;
-window.ffWatch        = watchNavigation;
+    window.ffDiffAndSave  = diffAndSave;
+    window.ffBuildKey     = buildSnapshotKey;
+    window.ffWatch        = watchNavigation;
+})();

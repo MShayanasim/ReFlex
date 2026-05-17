@@ -3,6 +3,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load initial state
     chrome.storage.sync.get(['flexUiEnabled'], (result) => {
+        if (chrome.runtime.lastError) {
+            console.warn('ReFlex: Could not load settings.', chrome.runtime.lastError.message);
+            return;
+        }
         // Default to true if not set
         toggle.checked = result.flexUiEnabled !== false; 
     });
@@ -11,11 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle.addEventListener('change', () => {
         const isEnabled = toggle.checked;
         chrome.storage.sync.set({ flexUiEnabled: isEnabled }, () => {
-            // Optional: Auto-reload the active tab if it's the portal
+            // Reload the active tab so the change takes effect
             chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                if (tabs[0] && tabs[0].url && tabs[0].url.includes("nu.edu.pk")) {
-                    chrome.tabs.reload(tabs[0].id);
-                }
+                if (tabs[0]) chrome.tabs.reload(tabs[0].id);
             });
         });
     });

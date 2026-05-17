@@ -1,8 +1,11 @@
 // ff-attendance.js — Absent analytics overlay
 // Appends a small bar above each attendance table. Never modifies original UI.
 
-let attTimer    = null;
-let attObserver = null;
+(function() {
+    'use strict';
+    let attTimer    = null;
+    let attObserver = null;
+    let _attThemeObs = null;
 
 // ── Entry point called by ff-observer ─────────────────────────────────────
 function runAttendance() {
@@ -11,13 +14,23 @@ function runAttendance() {
     enhanceAttendanceTables();
 
     // Watch for inner-page tab switches (same URL, new table content)
-    // Watch for inner-page tab switches (same URL, new table content)
     const area = document.querySelector('.m-content, #m-content, .m-wrapper') || document.body;
     attObserver = new MutationObserver(() => {
         clearTimeout(attTimer);
         attTimer = setTimeout(enhanceAttendanceTables, 400);
     });
     attObserver.observe(area, { childList: true, subtree: true });
+
+    // Re-render bars whenever the user toggles dark/light so colours update live
+    if (!_attThemeObs) {
+        _attThemeObs = new MutationObserver(() => {
+            document.querySelectorAll('.ff-att-bar').forEach(el => el.remove());
+            // Unhide any rows that were previously hidden by the "Show Absents Only" filter
+            document.querySelectorAll('table tr').forEach(row => row.style.display = '');
+            enhanceAttendanceTables();
+        });
+        _attThemeObs.observe(document.documentElement, { attributeFilter: ['class'] });
+    }
 }
 
 // ── Find & process every attendance table on the visible page ─────────────
@@ -178,19 +191,11 @@ function detectCreditHours(table) {
 // ── Cleanup (called by ff-observer tearDown) ───────────────────────────────
 function tearDownAttendance() {
     if (attObserver) { attObserver.disconnect(); attObserver = null; }
+    if (_attThemeObs) { _attThemeObs.disconnect(); _attThemeObs = null; }
     clearTimeout(attTimer);
     document.querySelectorAll('.ff-att-bar').forEach(el => el.remove());
 }
 
-window.ffRunAttendance      = runAttendance;
-window.ffTearDownAttendance = tearDownAttendance;
-
-// Re-render bars whenever the user toggles dark/light so colours update live
-const _attThemeObs = new MutationObserver(() => {
-    document.querySelectorAll('.ff-att-bar').forEach(el => el.remove());
-    // Unhide any rows that were previously hidden by the "Show Absents Only" filter
-    document.querySelectorAll('table tr').forEach(row => row.style.display = '');
-    enhanceAttendanceTables();
-});
-
-_attThemeObs.observe(document.documentElement, { attributeFilter: ['class'] });
+    window.ffRunAttendance      = runAttendance;
+    window.ffTearDownAttendance = tearDownAttendance;
+})();

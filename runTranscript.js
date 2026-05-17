@@ -1,4 +1,6 @@
-function runTranscript() {
+(function() {
+    'use strict';
+    function runTranscript() {
     const tables = document.querySelectorAll('table');
     let semesters = [];
 
@@ -96,5 +98,8 @@ function runTranscript() {
     });
 
     if (semesters.length === 0) return;
-    renderTranscriptDashboard(semesters);
-}
+    if (window.renderTranscriptDashboard) window.renderTranscriptDashboard(semesters);
+    }
+    
+    window.runTranscript = runTranscript;
+})();

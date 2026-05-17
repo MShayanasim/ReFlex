@@ -1,14 +1,20 @@
 // content.js — ReFlex dashboard renderer + topbar controls
 // Depends on: ff-observer.js (ffDiffAndSave), runMarks.js (runMarks), runTranscript.js (runTranscript)
 
-// ══════════════════════════════════════════════════════════════════════════
-// 1. STATE INIT — Apply persisted theme & UI preference before any render
-// ══════════════════════════════════════════════════════════════════════════
+(function() {
+    'use strict';
+    // ══════════════════════════════════════════════════════════════════════════
+    // 1. STATE INIT — Apply persisted theme & UI preference before any render
+    // ══════════════════════════════════════════════════════════════════════════
 
-let ffUIEnabled = true; // Default: ReFlex UI on
+    let ffUIEnabled = true; // Default: ReFlex UI on
 
 (function initState() {
     chrome.storage.sync.get(['ffTheme', 'flexUiEnabled'], data => {
+        if (chrome.runtime.lastError) {
+            console.warn('ReFlex: Could not load settings.', chrome.runtime.lastError.message);
+            return;
+        }
         // Theme — apply immediately to avoid flash
         if (data.ffTheme === 'dark') {
             document.documentElement.classList.add('ff-dark');
@@ -112,6 +118,13 @@ window.ffInjectTopbarToggle = ffInjectTopbarToggle;
 // ══════════════════════════════════════════════════════════════════════════
 // 3. SHARED HELPERS
 // ══════════════════════════════════════════════════════════════════════════
+
+// HTML escape helper — prevents XSS from DOM-sourced strings
+function esc(str) {
+    const el = document.createElement('span');
+    el.textContent = str;
+    return el.innerHTML;
+}
 
 // Grade → colour map
 const GRADE_COLOURS = {
@@ -229,8 +242,8 @@ function renderMarksDashboard(marksData, changedKeys) {
         const tab = document.createElement('div');
         tab.className = 'ff-tab' + (idx === 0 ? ' active' : '');
         tab.innerHTML = `
-            <span class="ff-tab-code">${code}</span>
-            <span class="ff-tab-name">${displayName}</span>
+            <span class="ff-tab-code">${esc(code)}</span>
+            <span class="ff-tab-name">${esc(displayName)}</span>
         `;
         tab.addEventListener('click', () => {
             tabBar.querySelectorAll('.ff-tab').forEach(t => t.classList.remove('active'));
@@ -377,7 +390,7 @@ function renderMarksDashboard(marksData, changedKeys) {
                     <span style="font-size:0.78rem;font-weight:600;color:#94a3b8;">${catTotalWeight.toFixed(1)}% of overall</span>
                     ${catDiff !== null ? `<span style="font-size:0.85rem;font-weight:700;color:${diffColor};background:${catDiff>=0?'rgba(22,163,74,0.1)':'rgba(220,38,38,0.1)'};padding:3px 10px;border-radius:20px;">${diffSign}${catDiff.toFixed(2)}</span>` : ''}
                 </div>
-                <p class="ff-cat-title">${cat.name}</p>
+                <p class="ff-cat-title">${esc(cat.name)}</p>
                 <div class="ff-card-scores">
                     <div class="ff-score-col ff-my-score-col" style="cursor:pointer; user-select:none;" title="Click to toggle between marks and weightage">
                         <span class="ff-score-label">MY SCORE</span>
@@ -442,7 +455,7 @@ function renderMarksDashboard(marksData, changedKeys) {
                 if (changedKeys && changedKeys.has(courseKey + '|UPDATED')) badge = '<span class="ff-badge-upd">UPD</span>';
 
                 const minMaxHtml = (item.min !== null && item.max !== null)
-                    ? `<span class="ff-item-minmax">Min ${item.min} | Max ${item.max}</span>` : '';
+                    ? `<span class="ff-item-minmax">Min ${esc(String(item.min))} | Max ${esc(String(item.max))}</span>` : '';
 
                 const row = document.createElement('div');
                 row.className = 'ff-item-row' + (isItemBelow ? ' ff-item-below' : '');
@@ -454,7 +467,7 @@ function renderMarksDashboard(marksData, changedKeys) {
                 row.innerHTML = `
                     <span class="ff-item-label" style="display: flex; align-items: center; flex: 1; min-width: 120px;">
                         ${isItemBelow ? '<i class="ff-warn-icon">!</i>' : ''}
-                        ${badge}${itemName}
+                        ${badge}${esc(itemName)}
                     </span>
                     <span class="ff-item-weightage" title="Contributes ${item.weight}% to final grade" style="flex: 0 0 35px; text-align: center;">${item.weight}%</span>
                     <span class="ff-item-val" style="flex: 0 0 65px; text-align: right;">${obtainedStr} / ${item.total}</span>
@@ -653,15 +666,15 @@ function renderTranscriptDashboard(semesters) {
             item.className = 'ff-transcript-row';
             item.innerHTML =
                 '<div class="ff-tr-left">' +
-                    '<div class="ff-tr-name">' + c.name + '</div>' +
+                    '<div class="ff-tr-name">' + esc(c.name) + '</div>' +
                     '<div class="ff-tr-meta">' +
-                        '<span class="ff-tr-code">' + c.code + ' • ' + cr + ' Cr</span>' +
+                        '<span class="ff-tr-code">' + esc(c.code) + ' • ' + cr + ' Cr</span>' +
                         (weightPct ? '<span class="ff-tr-sep">|</span><span class="ff-tr-weight">Weight: ' + weightPct + '</span>' : '') +
                         (contribPts ? '<span class="ff-tr-sep">|</span><span class="ff-tr-contrib">Contributes ' + contribPts + '</span>' : '') +
                     '</div>' +
                 '</div>' +
                 '<div class="ff-grade-badge" style="background:' + gs.bg + ';border-color:' + gs.border + ';color:' + gs.text + '">' +
-                    (c.grade || '—') +
+                    esc(c.grade || '—') +
                 '</div>';
             courseList.appendChild(item);
         });
@@ -673,7 +686,7 @@ function renderTranscriptDashboard(semesters) {
         tab.className = 'ff-tab';
         tab.style.flexDirection = 'row';
         tab.style.minWidth = 'auto';
-        tab.innerHTML = `<span class="ff-tab-code">${sem.name}</span>`;
+        tab.innerHTML = `<span class="ff-tab-code">${esc(sem.name)}</span>`;
         tab.onclick = () => renderSemester(i);
         tabsRow.appendChild(tab);
     });
@@ -686,12 +699,15 @@ function renderTranscriptDashboard(semesters) {
         renderSemester(semesters.length - 1);
     }
 }
+window.renderMarksDashboard = renderMarksDashboard;
+window.renderTranscriptDashboard = renderTranscriptDashboard;
 window.ffRunTranscript = () => { if (typeof runTranscript === 'function') runTranscript(); };
 
-if (typeof window.ffWatch === 'function') {
-    window.ffWatch();
-} else {
-    document.addEventListener('DOMContentLoaded', () => {
-        window.ffWatch && window.ffWatch();
-    });
-}
+    if (typeof window.ffWatch === 'function') {
+        window.ffWatch();
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.ffWatch && window.ffWatch();
+        });
+    }
+})();

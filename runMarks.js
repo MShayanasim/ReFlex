@@ -1,4 +1,6 @@
-function runMarks() {
+(function() {
+    'use strict';
+    function runMarks() {
     const tables = document.querySelectorAll('table');
     let marksData = [];
 
@@ -124,7 +126,7 @@ function runMarks() {
             const cellsArr = Array.from(cells);
             const weight   = getNumOrNull('weightage', cellsArr) || 0;
             const obtained = getNumOrNull('obtained marks', cellsArr) ?? getNumOrNull('obtained', cellsArr);
-            const total    = getNumOrNull('total marks', cellsArr) || 100;
+            const total    = getNumOrNull('total marks', cellsArr);
             const avg      = getNumOrNull('average', cellsArr);
             const minMarks = getText('minimum', cellsArr);
             const maxMarks = getText('maximum', cellsArr);
@@ -143,9 +145,12 @@ function runMarks() {
 
     if (window.ffDiffAndSave) {
         window.ffDiffAndSave(marksData, changedKeys => {
-            renderMarksDashboard(marksData, changedKeys);
+            if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, changedKeys);
         });
     } else {
-        renderMarksDashboard(marksData, new Set());
+        if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, new Set());
     }
-}
+    }
+
+    window.runMarks = runMarks;
+})();
