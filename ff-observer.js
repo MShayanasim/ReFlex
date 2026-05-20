@@ -92,9 +92,9 @@ function checkTablesReady(url) {
 }
 
 function triggerOverhaul(url) {
-    if (url.includes('marks'))      window.ffRunMarks      && window.ffRunMarks();
-    if (url.includes('transcript')) window.ffRunTranscript && window.ffRunTranscript();
-    if (url.includes('attendance')) window.ffRunAttendance && window.ffRunAttendance();
+    if (url.includes('marks'))           window.ffRunMarks      && window.ffRunMarks();
+    else if (url.includes('transcript')) window.ffRunTranscript && window.ffRunTranscript();
+    else if (url.includes('attendance')) window.ffRunAttendance && window.ffRunAttendance();
 
     // Guard watcher only for pages where we replace the UI (not attendance)
     if (!url.includes('attendance')) startGuardWatcher(url);
@@ -125,9 +125,8 @@ function startGuardWatcher(url) {
         }
     });
 
-    if (document.body) {
-        guardObserver.observe(document.body, { childList: true, subtree: true });
-    }
+    const guardTarget = document.querySelector('.m-content, #m-content') || document.body;
+    guardObserver.observe(guardTarget, { childList: true, subtree: true });
 }
 
 // ── SPA Navigation Observer ───────────────────────────────────────────────
@@ -251,29 +250,43 @@ function watchNavigation() {
 // Each course key holds ~500–800 bytes max, nowhere near the 8KB sync limit.
 const SNAP_PREFIX = 'ff_snap_';
 const SCHEMA_VERSION = 1;
+const BADGE_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
 
 function buildSnapshotKey(courseName, catName, itemLabel) {
     return `${catName}||${itemLabel}`;
 }
 
+function _readAllStorage(callback) {
+    chrome.storage.local.get(null, localStored => {
+        if (chrome.runtime.lastError) localStored = {};
+        chrome.storage.sync.get(null, syncStored => {
+            if (chrome.runtime.lastError) {
+                console.warn('ReFlex: Could not read sync storage.', chrome.runtime.lastError.message);
+                syncStored = {};
+            }
+            // Merge: sync takes priority over local fallback
+            callback({ ...localStored, ...syncStored });
+        });
+    });
+}
+
 function diffAndSave(marksData, callback) {
-    // Fetch ALL storage so we can safely garbage collect old semesters
-    chrome.storage.sync.get(null, allStored => {
-        if (chrome.runtime.lastError) {
-            console.warn('ReFlex: Could not read storage.', chrome.runtime.lastError.message);
-            callback(new Set());
-            return;
-        }
+    // Fetch from BOTH sync and local — local is the fallback when sync quota is exceeded
+    _readAllStorage(allStored => {
 
         // Schema Versioning Check
         if (allStored.ff_schema_version !== SCHEMA_VERSION) {
             const keysToWipe = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX));
-            if (keysToWipe.length > 0) chrome.storage.sync.remove(keysToWipe);
+            if (keysToWipe.length > 0) {
+                chrome.storage.sync.remove(keysToWipe, () => {
+                    if (chrome.runtime.lastError) console.warn('ReFlex: Schema wipe failed.', chrome.runtime.lastError.message);
+                });
+                chrome.storage.local.remove(keysToWipe);
+            }
             allStored = {};
         }
 
         const writes  = { ff_schema_version: SCHEMA_VERSION };
-        const changed = new Set();
         const activeKeys = new Set(marksData.map(c => SNAP_PREFIX + c.courseName));
 
         // 1. Garbage Collection: Remove old courses no longer on the page
@@ -282,7 +295,12 @@ function diffAndSave(marksData, callback) {
             chrome.storage.sync.remove(keysToRemove, () => {
                 if (chrome.runtime.lastError) console.warn('ReFlex: GC remove failed.', chrome.runtime.lastError.message);
             });
+            chrome.storage.local.remove(keysToRemove);
         }
+
+        // Retrieve existing badge timestamps
+        const badgeTimestamps = allStored.ff_badge_timestamps || {};
+        const now = Date.now();
 
         // 2. Process current courses and find NEW/UPDATED grades
         marksData.forEach(course => {
@@ -300,7 +318,7 @@ function diffAndSave(marksData, callback) {
                     const uiKey = `${course.courseName}||${cat.name}||${item.label}`;
                     
                     if (!(snapKey in oldCourse)) {
-                        changed.add(uiKey + '|NEW');
+                        badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
                     } else {
                         let oldValStr = oldCourse[snapKey];
                         let [oldObtained, oldTotal] = oldValStr.split('|');
@@ -314,9 +332,9 @@ function diffAndSave(marksData, callback) {
                         if (normalizedOldVal !== val) {
                             // If it was previously ungraded (null), show as NEW instead of UPDATED
                             if (oldObtained === 'null' && item.obtained !== null) {
-                                changed.add(uiKey + '|NEW');
+                                badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
                             } else {
-                                changed.add(uiKey + '|UPDATED');
+                                badgeTimestamps[uiKey] = { type: 'UPDATED', timestamp: now };
                             }
                         }
                     }
@@ -326,12 +344,40 @@ function diffAndSave(marksData, callback) {
             writes[storeKey] = newCourse;
         });
 
+        // Build valid UI Keys to prune deleted elements or stale entries
+        const validUiKeys = new Set();
+        marksData.forEach(course => {
+            course.categories.forEach(cat => {
+                cat.items.forEach(item => {
+                    validUiKeys.add(`${course.courseName}||${cat.name}||${item.label}`);
+                });
+            });
+        });
+
+        // Prune expired or obsolete badges
+        for (const uiKey in badgeTimestamps) {
+            if (!validUiKeys.has(uiKey)) {
+                delete badgeTimestamps[uiKey];
+            } else if (now - badgeTimestamps[uiKey].timestamp > BADGE_EXPIRY_MS) {
+                delete badgeTimestamps[uiKey];
+            }
+        }
+
+        writes.ff_badge_timestamps = badgeTimestamps;
+
+        // Compile set of changed keys (e.g. key|NEW or key|UPDATED) for rendering compatibility
+        const changed = new Set();
+        for (const uiKey in badgeTimestamps) {
+            changed.add(uiKey + '|' + badgeTimestamps[uiKey].type);
+        }
+
         // 3. Save new snapshot and trigger UI render
         chrome.storage.sync.set(writes, () => {
             if (chrome.runtime.lastError) {
                 console.warn('ReFlex: Sync storage quota exceeded, falling back to local.', chrome.runtime.lastError.message);
-                chrome.storage.local.set(writes);
             }
+            // Always persist to local as backup for sync quota failures
+            chrome.storage.local.set(writes);
             callback(changed);
         });
     });

@@ -6,6 +6,7 @@
     let attTimer    = null;
     let attObserver = null;
     let _attThemeObs = null;
+    const _processedTables = new WeakSet();
 
 // ── Entry point called by ff-observer ─────────────────────────────────────
 function runAttendance() {
@@ -27,6 +28,8 @@ function runAttendance() {
             document.querySelectorAll('.ff-att-bar').forEach(el => el.remove());
             // Unhide any rows that were previously hidden by the "Show Absents Only" filter
             document.querySelectorAll('table tr').forEach(row => row.style.display = '');
+            // Clear processed cache so bars are rebuilt with new theme colours
+            document.querySelectorAll('table').forEach(t => _processedTables.delete(t));
             enhanceAttendanceTables();
         });
         _attThemeObs.observe(document.documentElement, { attributeFilter: ['class'] });
@@ -36,18 +39,22 @@ function runAttendance() {
 // ── Find & process every attendance table on the visible page ─────────────
 function enhanceAttendanceTables() {
     document.querySelectorAll('table').forEach(table => {
-        // Skip if already has our bar
-        if (table.previousElementSibling?.classList?.contains('ff-att-bar')) return;
+        // Skip if already processed
+        if (_processedTables.has(table)) return;
 
         const hCells = Array.from(
             table.querySelectorAll('tr:first-child th, tr:first-child td')
         ).map(c => c.textContent.trim().toLowerCase());
 
-        if (!hCells.some(h => h.includes('presence'))) return;
+        if (!hCells.some(h => h.includes('presence'))) {
+            _processedTables.add(table); // not an attendance table, skip on future scans
+            return;
+        }
 
         const presenceIdx = hCells.findIndex(h => h.includes('presence'));
         const durationIdx = hCells.findIndex(h => h.includes('duration'));
         buildBar(table, presenceIdx, durationIdx);
+        _processedTables.add(table);
     });
 }
 
@@ -107,7 +114,7 @@ function buildBar(table, presenceIdx, durationIdx) {
     const warn = document.createElement('span');
     if (danger) {
         warn.style.cssText = `color:${isDark ? '#f87171' : '#e74c3c'};font-weight:700;font-style:italic;`;
-        warn.textContent = WARNS[Math.min(absents - warnAt, WARNS.length - 1)];
+        warn.textContent = WARNS[Math.max(0, Math.min(absents - warnAt, WARNS.length - 1))];
     }
 
     // Filter button
@@ -162,7 +169,7 @@ function detectCreditHours(table) {
     for (let i = 0; i < 6 && node; i++) {
         const h = node.querySelector('h2,h3,h4,h5,h6,[class*="title"],[class*="heading"]');
         if (h) { heading = h.textContent.trim(); break; }
-        let sib = table.previousElementSibling;
+        let sib = node.previousElementSibling;
         for (let j = 0; j < 4 && sib; j++) {
             const txt = sib.textContent?.trim() || '';
             if (/[A-Z]{2,4}\d{4}/.test(txt)) { heading = txt; break; }

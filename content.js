@@ -8,28 +8,33 @@
     // ══════════════════════════════════════════════════════════════════════════
 
     let ffUIEnabled = true; // Default: ReFlex UI on
+    let _outsideClickHandler = null; // Hoisted ref for drawer outside-click listener
 
 (function initState() {
-    chrome.storage.sync.get(['ffTheme', 'flexUiEnabled'], data => {
-        if (chrome.runtime.lastError) {
-            console.warn('ReFlex: Could not load settings.', chrome.runtime.lastError.message);
-            return;
-        }
-        // Theme — apply immediately to avoid flash
-        if (data.ffTheme === 'dark') {
-            document.documentElement.classList.add('ff-dark');
-        } else {
-            document.documentElement.classList.remove('ff-dark');
-        }
-        // UI enabled state
-        ffUIEnabled = data.flexUiEnabled !== false;
-        // Apply sidebar class so CSS selectors work
-        if (ffUIEnabled) {
-            document.documentElement.classList.add('ff-enabled');
-        } else {
-            document.documentElement.classList.remove('ff-enabled');
-        }
-    });
+    try {
+        chrome.storage.sync.get(['ffTheme', 'flexUiEnabled'], data => {
+            if (chrome.runtime.lastError) {
+                console.warn('ReFlex: Could not load settings.', chrome.runtime.lastError.message);
+                return;
+            }
+            // Theme — apply immediately to avoid flash
+            if (data.ffTheme === 'dark') {
+                document.documentElement.classList.add('ff-dark');
+            } else {
+                document.documentElement.classList.remove('ff-dark');
+            }
+            // UI enabled state
+            ffUIEnabled = data.flexUiEnabled !== false;
+            // Apply sidebar class so CSS selectors work
+            if (ffUIEnabled) {
+                document.documentElement.classList.add('ff-enabled');
+            } else {
+                document.documentElement.classList.remove('ff-enabled');
+            }
+        });
+    } catch (e) {
+        console.warn('ReFlex: Extension context invalidated. Please refresh the page.');
+    }
 })();
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -50,7 +55,14 @@ function ffInjectTopbarToggle() {
     if (!nav) {
         // Retry if not found (SPA might still be rendering)
         if (!window.ffTopbarRetry) {
+            let retryCount = 0;
             window.ffTopbarRetry = setInterval(() => {
+                retryCount++;
+                if (retryCount > 30) { // 15 seconds max
+                    clearInterval(window.ffTopbarRetry);
+                    window.ffTopbarRetry = null;
+                    return;
+                }
                 if (document.getElementById('ff-topbar-controls')) {
                     clearInterval(window.ffTopbarRetry);
                     window.ffTopbarRetry = null;
@@ -136,10 +148,14 @@ window.ffInjectTopbarToggle = ffInjectTopbarToggle;
 // ══════════════════════════════════════════════════════════════════════════
 
 // HTML escape helper — prevents XSS from DOM-sourced strings
+const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(str) {
-    const el = document.createElement('span');
-    el.textContent = str;
-    return el.innerHTML;
+    return String(str).replace(/[&<>"']/g, c => _ESC_MAP[c]);
+}
+
+// Stable ID helper — strips characters invalid in HTML id attributes
+function safeId(str) {
+    return String(str).replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 // Grade → colour map
@@ -216,6 +232,128 @@ function renderMarksDashboard(marksData, changedKeys) {
     hideNative();
 
     const root = mountRoot();
+
+    // ─ Recent Updates Drawer ──────────────────────────────────────────
+    const recentUpdates = [];
+    marksData.forEach((course, courseIdx) => {
+        const codeMatch = course.courseName.match(/^([A-Z]{2,4}\d{4})/i);
+        const courseCode = codeMatch ? codeMatch[1] : course.courseName.substring(0, 7);
+
+        course.categories.forEach(cat => {
+            cat.items.forEach(item => {
+                const courseKey = `${course.courseName}||${cat.name}||${item.label}`;
+                if (changedKeys && changedKeys.has(courseKey + '|NEW')) {
+                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'NEW' });
+                } else if (changedKeys && changedKeys.has(courseKey + '|UPDATED')) {
+                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'UPDATED' });
+                }
+            });
+        });
+    });
+
+    const drawer = document.createElement('div');
+    drawer.className = 'ff-updates-drawer';
+    
+    let updatesHtml = '';
+    if (recentUpdates.length > 0) {
+        recentUpdates.forEach(upd => {
+            const badgeClass = upd.type === 'NEW' ? 'ff-badge-new' : 'ff-badge-upd';
+            const obtainedStr = (upd.item.obtained !== null && upd.item.obtained !== undefined) ? upd.item.obtained : '-';
+            let itemName = upd.item.label;
+            if (!isNaN(itemName) || itemName.length <= 2) {
+                itemName = upd.catName + ' #' + itemName;
+            }
+            
+            updatesHtml += `
+                <div class="ff-updates-drawer-row" data-course-idx="${upd.courseIdx}" data-cat-name="${esc(upd.catName)}" data-item-label="${esc(upd.item.label)}">
+                    <div class="ff-updates-drawer-row-left">
+                        <span class="ff-updates-drawer-row-course">${esc(upd.courseCode)}</span>
+                        <span class="ff-updates-drawer-row-item">${esc(itemName)} (${esc(upd.catName)})</span>
+                    </div>
+                    <div class="ff-updates-drawer-row-right">
+                        <span class="ff-updates-drawer-row-score">${obtainedStr} / ${upd.item.total}</span>
+                        <span class="${badgeClass}">${upd.type}</span>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        updatesHtml = `
+            <div class="ff-updates-empty">
+                <span style="font-size: 1.6rem;">🎉</span>
+                <span>No new updates. All your grades are up-to-date!</span>
+            </div>
+        `;
+    }
+
+    const tabText = recentUpdates.length > 0 
+        ? `${recentUpdates.length} Update${recentUpdates.length > 1 ? 's' : ''}`
+        : 'No Updates';
+
+    drawer.innerHTML = `
+        <div class="ff-updates-drawer-content">
+            <h4>🔔 Recent Updates</h4>
+            <div class="ff-updates-list">
+                ${updatesHtml}
+            </div>
+        </div>
+        <div class="ff-updates-pull-tab">
+            <span class="ff-pull-tab-icon">🔔</span>
+            <span class="ff-pull-tab-text">${tabText}</span>
+            <span class="ff-pull-tab-arrow">▼</span>
+        </div>
+    `;
+
+    root.appendChild(drawer);
+
+    // Toggle drawer open/close
+    const pullTab = drawer.querySelector('.ff-updates-pull-tab');
+    pullTab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        drawer.classList.toggle('open');
+    });
+
+    // Click outside closes drawer
+    if (_outsideClickHandler) document.removeEventListener('click', _outsideClickHandler);
+    _outsideClickHandler = (e) => {
+        if (!drawer.contains(e.target) && drawer.classList.contains('open')) {
+            drawer.classList.remove('open');
+        }
+    };
+    document.addEventListener('click', _outsideClickHandler);
+
+    if (recentUpdates.length > 0) {
+        // Click on update row handles navigation
+        drawer.querySelectorAll('.ff-updates-drawer-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const cIdx = parseInt(row.getAttribute('data-course-idx'));
+                const catName = row.getAttribute('data-cat-name');
+                const itemLabel = row.getAttribute('data-item-label');
+
+                // 1. Switch tab
+                const tabs = root.querySelectorAll('.ff-course-tabs .ff-tab');
+                if (tabs[cIdx]) {
+                    tabs[cIdx].click();
+                }
+
+                // 2. Scroll and highlight
+                setTimeout(() => {
+                    const targetId = `item-${cIdx}-${safeId(catName)}-${safeId(itemLabel)}`;
+                    const targetRow = document.getElementById(targetId);
+                    if (targetRow) {
+                        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targetRow.classList.add('ff-pulse-highlight');
+                        setTimeout(() => {
+                            targetRow.classList.remove('ff-pulse-highlight');
+                        }, 2500);
+                    }
+                }, 150);
+
+                // 3. Close drawer
+                drawer.classList.remove('open');
+            });
+        });
+    }
 
     // ─ Header ─────────────────────────────────────────────────────────
     const header = document.createElement('div');
@@ -303,6 +441,7 @@ function renderMarksDashboard(marksData, changedKeys) {
         const gs = gradeStyle(tier.label);
 
         overallCard.innerHTML = `
+            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 1.4rem; font-weight: 600;">${esc(displayName)}</h3>
             <div class="ff-oa-label">OVERALL PERFORMANCE</div>
             <div class="ff-big-score-row">
                 <div class="ff-big-score">
@@ -474,6 +613,7 @@ function renderMarksDashboard(marksData, changedKeys) {
                     ? `<span class="ff-item-minmax">Min ${esc(String(item.min))} | Max ${esc(String(item.max))}</span>` : '';
 
                 const row = document.createElement('div');
+                row.id = `item-${idx}-${safeId(cat.name)}-${safeId(item.label)}`;
                 row.className = 'ff-item-row' + (isItemBelow ? ' ff-item-below' : '');
                 let itemName = item.label;
                 if (!isNaN(itemName) || itemName.length <= 2) {
@@ -719,11 +859,15 @@ window.renderMarksDashboard = renderMarksDashboard;
 window.renderTranscriptDashboard = renderTranscriptDashboard;
 window.ffRunTranscript = () => { if (typeof runTranscript === 'function') runTranscript(); };
 
-    if (typeof window.ffWatch === 'function') {
+    let _watchStarted = false;
+    function startWatch() {
+        if (_watchStarted || typeof window.ffWatch !== 'function') return;
+        _watchStarted = true;
         window.ffWatch();
+    }
+    if (typeof window.ffWatch === 'function') {
+        startWatch();
     } else {
-        document.addEventListener('DOMContentLoaded', () => {
-            window.ffWatch && window.ffWatch();
-        });
+        document.addEventListener('DOMContentLoaded', startWatch);
     }
 })();
