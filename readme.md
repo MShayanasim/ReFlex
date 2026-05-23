@@ -1,5 +1,7 @@
 ### ReFlex — Better Flex for FAST-NUCES Students
 
+[![Chrome Web Store Version](https://img.shields.io/chrome-web-store/v/hljpjnkdjelocgcgocknamkjafgbfkfg.svg?label=Chrome%20Web%20Store&color=blue&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/reflex/hljpjnkdjelocgcgocknamkjafgbfkfg)
+
 The official FAST Flex portal works. It just barely does.
 
 ReFlex is a Chrome Extension that completely replaces the Flex student portal experience with a handcrafted, premium dashboard. Built by a FAST student, for FAST students — every single feature was designed to solve a real frustration with the original UI.
@@ -72,9 +74,19 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 
 ---
 
-## 🚀 Installation (Chromium Browsers)
+## 🚀 Installation
 
-Since the extension is currently in beta/development, you can easily install it manually on any Chromium-based browser (Google Chrome, Microsoft Edge, Brave, etc.) by following these steps:
+### 🌐 Install from Chrome Web Store (Recommended)
+
+You can install ReFlex officially from the Chrome Web Store to get automatic updates:
+
+[![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Install_Now-blue?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/reflex/hljpjnkdjelocgcgocknamkjafgbfkfg)
+
+---
+
+### 🛠️ Manual Installation (Developer Mode)
+
+If you prefer to install the latest developer version manually on any Chromium-based browser (Google Chrome, Microsoft Edge, Brave, etc.), follow these steps:
 
 ### Step 1: Download the Extension
 1. Go to the [Releases page](../../releases) (or click the green **Code** button and select **Download ZIP**).
