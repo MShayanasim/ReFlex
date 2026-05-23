@@ -25,6 +25,7 @@
             }
             // UI enabled state
             ffUIEnabled = data.flexUiEnabled !== false;
+            localStorage.setItem('ff_ui_enabled', ffUIEnabled);
             // Apply sidebar class so CSS selectors work
             if (ffUIEnabled) {
                 document.documentElement.classList.add('ff-enabled');
@@ -93,6 +94,8 @@ function ffInjectTopbarToggle() {
         ffUIEnabled = !ffUIEnabled;
         sw.classList.toggle('on', ffUIEnabled);
         sw.title = ffUIEnabled ? 'Switch to Original UI' : 'Switch to ReFlex UI';
+        
+        localStorage.setItem('ff_ui_enabled', ffUIEnabled);
         
         // ONLY the storage call goes in the try-catch
         try {

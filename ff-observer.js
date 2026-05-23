@@ -9,6 +9,7 @@
     // The veil is removed later by triggerOverhaul() once ReFlex UI is ready,
     // or by handleNavChange() when navigating to a non-ReFlex page.
     (function immediateVeil() {
+        if (localStorage.getItem('ff_ui_enabled') === 'false') return;
         const url = location.href.toLowerCase();
         if (url.includes('marks') || url.includes('transcript')) {
             document.documentElement.classList.add('ff-veil-native');
@@ -20,6 +21,7 @@
     let debounceTimer = null;
     let guardObserver = null;   // watches for #ff-root being removed
     let scanObserver  = null;   // watches for tables to appear (debounced)
+    let failSafeTimer = null;   // fallback to remove veil if tables never appear
 
 // ── Debounced DOM watcher ─────────────────────────────────────────────────
 /**
@@ -32,6 +34,13 @@ const DEBOUNCE_MS = 600;
 
 function startScanWatcher() {
     if (scanObserver) scanObserver.disconnect();
+    clearTimeout(failSafeTimer);
+
+    // Fail-safe: if tables don't appear within 5 seconds, assume there are none and lift the veil.
+    failSafeTimer = setTimeout(() => {
+        if (scanObserver) { scanObserver.disconnect(); scanObserver = null; }
+        document.documentElement.classList.remove('ff-veil-native');
+    }, 5000);
 
     scanObserver = new MutationObserver(() => {
         // Reset the debounce timer on every mutation
@@ -105,6 +114,7 @@ function checkTablesReady(url) {
 }
 
 function triggerOverhaul(url) {
+    clearTimeout(failSafeTimer);
     if (url.includes('marks'))           window.ffRunMarks      && window.ffRunMarks();
     else if (url.includes('transcript')) window.ffRunTranscript && window.ffRunTranscript();
     else if (url.includes('attendance')) window.ffRunAttendance && window.ffRunAttendance();
@@ -138,7 +148,7 @@ function startGuardWatcher(url) {
         }
     });
 
-    const guardTarget = document.querySelector('.m-content, #m-content') || document.body;
+    const guardTarget = document.body; // Safest target to survive SPA router node replacement
     guardObserver.observe(guardTarget, { childList: true, subtree: true });
 }
 
@@ -212,10 +222,12 @@ function handleNavChange() {
 
     if (changed) {
         // Drop the veil immediately to prevent flash of ugly native UI!
-        if (key === 'marks' || key === 'transcript') {
-            document.documentElement.classList.add('ff-veil-native');
-        } else {
-            document.documentElement.classList.remove('ff-veil-native');
+        if (localStorage.getItem('ff_ui_enabled') !== 'false') {
+            if (key === 'marks' || key === 'transcript') {
+                document.documentElement.classList.add('ff-veil-native');
+            } else {
+                document.documentElement.classList.remove('ff-veil-native');
+            }
         }
 
         tearDown();
@@ -233,6 +245,7 @@ function handleNavChange() {
 
 function tearDown() {
     clearTimeout(debounceTimer);
+    clearTimeout(failSafeTimer);
     if (window.ffTopbarRetry) { clearInterval(window.ffTopbarRetry); window.ffTopbarRetry = null; }
     if (scanObserver)  { scanObserver.disconnect();  scanObserver  = null; }
     if (guardObserver) { guardObserver.disconnect(); guardObserver = null; }
