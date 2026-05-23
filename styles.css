@@ -565,9 +565,12 @@
 /* ── Global Sidebar Overhaul (ReFlex UI Aesthetic) ───────────────────────── */
 /* Only applies when the extension toggle is ON (html.ff-enabled) */
 
-/* Veil to completely hide native tables during load, preventing the FOUC flash */
+/* Veil to completely hide native tables during load, preventing the FOUC flash.
+   Applied synchronously by ff-observer.js at document_start, removed once ReFlex
+   UI is injected or when navigating to a non-ReFlex page. */
 html.ff-veil-native .m-content > *:not(#ff-root) {
     opacity: 0 !important;
+    visibility: hidden !important;
     pointer-events: none !important;
 }
 

@@ -96,7 +96,9 @@ function ffInjectTopbarToggle() {
         
         // ONLY the storage call goes in the try-catch
         try {
-            chrome.storage.sync.set({ flexUiEnabled: ffUIEnabled });
+            chrome.storage.sync.set({ flexUiEnabled: ffUIEnabled }, () => {
+                if (chrome.runtime.lastError) { /* ignore */ }
+            });
         } catch (e) {
             console.warn('ReFlex: Could not save UI state (Extension context invalidated). Please refresh the page.');
         }
@@ -130,7 +132,9 @@ function ffInjectTopbarToggle() {
         
         // ONLY the storage call goes in the try-catch
         try {
-            chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' });
+            chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' }, () => {
+                if (chrome.runtime.lastError) { /* ignore */ }
+            });
         } catch (e) {
             console.warn('ReFlex: Could not save theme state (Extension context invalidated). Please refresh the page.');
         }
