@@ -1152,9 +1152,9 @@ html.ff-dark .ff-tr-contrib { color: #4ade80; }
 
 /* ── Updates Drawer ─────────────────────────────────────── */
 .ff-updates-drawer {
-    position: absolute;
-    top: 5px;
-    left: 50%;
+    position: fixed;
+    top: 85px; /* aligns right under the native topbar */
+    left: 55%;
     transform: translateX(-50%);
     width: calc(100% - 56px);
     max-width: 600px;

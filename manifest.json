@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ReFlex",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "minimum_chrome_version": "105",
   "description": "Redesigns the FAST-NUCES Flex portal with a premium dashboard, dark mode, GPA projections, and live grade change tracking.",
   "permissions": ["storage", "activeTab"],
