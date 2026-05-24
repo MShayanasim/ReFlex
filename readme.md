@@ -1,7 +1,7 @@
 ### ReFlex — Better Flex for FAST-NUCES Students
 
-[![Chrome Web Store Version](https://img.shields.io/chrome-web-store/v/hljpjnkdjelocgcgocknamkjafgbfkfg.svg?label=Chrome%20Web%20Store&color=blue&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/reflex/hljpjnkdjelocgcgocknamkjafgbfkfg)
-[![Tutorial/Showcase](https://img.shields.io/badge/Tutorial%2FShowcase-Watch_Video-red?logo=youtube&logoColor=white)](https://drive.google.com/file/d/1lry20sllleA1AT1_nennfn8N0foRct6B/view?usp=sharing)
+[![Chrome Web Store Version](https://img.shields.io/chrome-web-store/v/hljpjnkdjelocgcgocknamkjafgbfkfg.svg?label=Chrome%20Web%20Store&color=blue&logo=googlechrome&logoColor=white&style=for-the-badge)](https://chromewebstore.google.com/detail/reflex/hljpjnkdjelocgcgocknamkjafgbfkfg)
+[![Tutorial/Showcase](https://img.shields.io/badge/Tutorial%2FShowcase-Watch_Video-red?logo=youtube&logoColor=white&style=for-the-badge)](https://drive.google.com/file/d/1lry20sllleA1AT1_nennfn8N0foRct6B/view?usp=sharing)
 
 The official FAST Flex portal works. It just barely does.
 
@@ -81,7 +81,7 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 
 You can install ReFlex officially from the Chrome Web Store to get automatic updates:
 
-[![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Install_Now-blue?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/reflex/hljpjnkdjelocgcgocknamkjafgbfkfg)
+[![Chrome Web Store](https://img.shields.io/badge/Chrome_Web_Store-Install_Now-blue?logo=googlechrome&logoColor=white&style=for-the-badge)](https://chromewebstore.google.com/detail/reflex/hljpjnkdjelocgcgocknamkjafgbfkfg)
 
 ---
 
