@@ -1357,6 +1357,47 @@ html.ff-dark .ff-updates-empty {
     color: #94a3b8;
 }
 
+/* ── Login Page Theme Toggle ────────────────────────────────────────────── */
+.ff-login-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 1.4rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.ff-login-theme-toggle:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.ff-login-theme-toggle .ff-login-theme-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Dark mode: Login toggle */
+html.ff-dark .ff-login-theme-toggle {
+    background: #1e293b;
+    border-color: rgba(255,255,255,0.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+html.ff-dark .ff-login-theme-toggle:hover {
+    background: #263447;
+    border-color: rgba(255,255,255,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
 /* ── Dark Mode: Login Form & White Container Fix ──────────────────────────── */
 /* Catch any divs or containers with white/light background colors */
 html.ff-dark [style*="background: white"],

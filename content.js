@@ -39,42 +39,77 @@
 })();
 
 // ══════════════════════════════════════════════════════════════════════════
-// 2. TOPBAR TOGGLE — UI switch + dark/light theme switch injected into nav
+// 1.5 LOGIN PAGE THEME TOGGLE — Top left corner toggle for login pages
 // ══════════════════════════════════════════════════════════════════════════
 
-function ffInjectTopbarToggle() {
-    if (document.getElementById('ff-topbar-controls')) return;
-
-    // Try multiple topbar nav selectors in priority order
-    const nav = document.querySelector(
-        '.m-topbar__nav.m-nav,' +
-        '.m-topbar .m-nav,' +
-        '#m_header_topbar .m-nav,' +
-        '.m-topbar__nav'
-    );
-    
-    if (!nav) {
-        // Retry if not found (SPA might still be rendering)
-        if (!window.ffTopbarRetry) {
-            let retryCount = 0;
-            window.ffTopbarRetry = setInterval(() => {
-                retryCount++;
-                if (retryCount > 30) { // 15 seconds max
-                    clearInterval(window.ffTopbarRetry);
-                    window.ffTopbarRetry = null;
-                    return;
-                }
-                if (document.getElementById('ff-topbar-controls')) {
-                    clearInterval(window.ffTopbarRetry);
-                    window.ffTopbarRetry = null;
-                } else if (document.querySelector('.m-topbar__nav.m-nav, .m-topbar .m-nav, #m_header_topbar .m-nav, .m-topbar__nav')) {
-                    clearInterval(window.ffTopbarRetry);
-                    window.ffTopbarRetry = null;
-                    ffInjectTopbarToggle();
-                }
-            }, 500);
-        }
+function ffInjectLoginThemeToggle() {
+    // Only inject on login pages
+    if (!window.location.href.toLowerCase().includes('login')) {
         return;
+    }
+    
+    // Don't inject if already exists
+    if (document.getElementById('ff-login-theme-toggle')) return;
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ffInjectLoginThemeToggle);
+        return;
+    }
+    
+    const isDark = document.documentElement.classList.contains('ff-dark');
+    
+    // Create toggle button
+    const toggle = document.createElement('div');
+    toggle.id = 'ff-login-theme-toggle';
+    toggle.className = 'ff-login-theme-toggle' + (isDark ? ' dark' : '');
+    toggle.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    toggle.innerHTML = `<span class="ff-login-theme-icon">${isDark ? '☀️' : '🌙'}</span>`;
+    toggle.style.cssText = [
+        'position: fixed',
+        'top: 20px',
+        'left: 20px',
+        'z-index: 9999',
+        'cursor: pointer'
+    ].join(';');
+    
+    toggle.addEventListener('click', () => {
+        const nowDark = document.documentElement.classList.toggle('ff-dark');
+        toggle.classList.toggle('dark', nowDark);
+        toggle.querySelector('.ff-login-theme-icon').textContent = nowDark ? '☀️' : '🌙';
+        toggle.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+        
+        // Update reCAPTCHA theme and force re-render if possible
+        setTimeout(() => {
+            ffApplyRecaptchaDarkTheme();
+            
+            // Try to re-render reCAPTCHAs
+            if (window.grecaptcha && window.grecaptcha.reset) {
+                document.querySelectorAll('.g-recaptcha').forEach(el => {
+                    if (el.getAttribute('data-widget-id')) {
+                        window.grecaptcha.reset(el.getAttribute('data-widget-id'));
+                    }
+                });
+            }
+        }, 50);
+        
+        // ONLY the storage call goes in the try-catch
+        try {
+            chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' }, () => {
+                if (chrome.runtime.lastError) { /* ignore */ }
+            });
+        } catch (e) {
+            console.warn('ReFlex: Could not save theme state (Extension context invalidated).');
+        }
+    });
+    
+    document.body.appendChild(toggle);
+}
+
+// Inject login toggle on page load
+ffInjectLoginThemeToggle();
+
+// ══════════════════════════════════════════════════════════════════════════
     }
 
     const wrapper = document.createElement('li');
