@@ -133,6 +133,20 @@ function ffInjectTopbarToggle() {
         themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? '☀️' : '🌙';
         themeBtn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
         
+        // Update reCAPTCHA theme and force re-render if possible
+        setTimeout(() => {
+            ffApplyRecaptchaDarkTheme();
+            
+            // Try to re-render reCAPTCHAs
+            if (window.grecaptcha && window.grecaptcha.reset) {
+                document.querySelectorAll('.g-recaptcha').forEach(el => {
+                    if (el.getAttribute('data-widget-id')) {
+                        window.grecaptcha.reset(el.getAttribute('data-widget-id'));
+                    }
+                });
+            }
+        }, 50);
+        
         // ONLY the storage call goes in the try-catch
         try {
             chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' }, () => {
@@ -149,6 +163,120 @@ function ffInjectTopbarToggle() {
     nav.prepend(wrapper);
 }
 window.ffInjectTopbarToggle = ffInjectTopbarToggle;
+
+// ══════════════════════════════════════════════════════════════════════════
+// 2.5. reCAPTCHA DARK MODE — Apply Google's data-theme attribute
+// ══════════════════════════════════════════════════════════════════════════
+
+function ffApplyRecaptchaDarkTheme() {
+    const isDark = document.documentElement.classList.contains('ff-dark');
+    const recaptchas = document.querySelectorAll('.g-recaptcha');
+    
+    recaptchas.forEach(el => {
+        if (isDark) {
+            el.setAttribute('data-theme', 'dark');
+        } else {
+            el.removeAttribute('data-theme');
+        }
+    });
+}
+
+// Watch for reCAPTCHA rendering and apply theme
+function ffSetupRecaptchaObserver() {
+    // Intercept grecaptcha.render if it exists
+    if (window.grecaptcha) {
+        const originalRender = window.grecaptcha.render;
+        window.grecaptcha.render = function(container, options) {
+            const isDark = document.documentElement.classList.contains('ff-dark');
+            if (isDark) {
+                options = options || {};
+                options.theme = 'dark';
+            }
+            return originalRender.call(this, container, options);
+        };
+    }
+    
+    // Aggressively apply data-theme to any existing reCAPTCHAs
+    const applyTheme = () => {
+        const isDark = document.documentElement.classList.contains('ff-dark');
+        document.querySelectorAll('.g-recaptcha').forEach(el => {
+            if (isDark) {
+                el.setAttribute('data-theme', 'dark');
+            } else {
+                el.removeAttribute('data-theme');
+            }
+        });
+    };
+    
+    // Apply immediately
+    applyTheme();
+    
+    // MutationObserver to catch reCAPTCHA elements being inserted
+    if (!window.ffRecaptchaObserver) {
+        const observer = new MutationObserver(() => {
+            const recaptchas = document.querySelectorAll('.g-recaptcha');
+            recaptchas.forEach(el => {
+                const isDark = document.documentElement.classList.contains('ff-dark');
+                if (isDark && !el.hasAttribute('data-theme')) {
+                    el.setAttribute('data-theme', 'dark');
+                    
+                    // Try to re-render if widget ID exists
+                    if (window.grecaptcha && window.grecaptcha.reset && el.getAttribute('data-widget-id')) {
+                        setTimeout(() => {
+                            window.grecaptcha.reset(el.getAttribute('data-widget-id'));
+                        }, 100);
+                    }
+                }
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-widget-id']
+        });
+        
+        window.ffRecaptchaObserver = observer;
+    }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        ffSetupRecaptchaObserver();
+        ffApplyRecaptchaDarkTheme();
+    });
+} else {
+    ffSetupRecaptchaObserver();
+    ffApplyRecaptchaDarkTheme();
+}
+
+// Intercept grecaptcha object if it's added later
+Object.defineProperty(window, 'grecaptcha', {
+    get() {
+        return this._grecaptcha;
+    },
+    set(value) {
+        if (value && !value._ffIntercepted) {
+            const originalRender = value.render;
+            value.render = function(container, options) {
+                const isDark = document.documentElement.classList.contains('ff-dark');
+                if (isDark) {
+                    options = options || {};
+                    options.theme = 'dark';
+                }
+                return originalRender.call(this, container, options);
+            };
+            value._ffIntercepted = true;
+        }
+        this._grecaptcha = value;
+    },
+    configurable: true
+});
+
+// Update reCAPTCHA theme when toggling dark mode
+window.ffApplyRecaptchaDarkTheme = ffApplyRecaptchaDarkTheme;
 
 // ══════════════════════════════════════════════════════════════════════════
 // 3. SHARED HELPERS

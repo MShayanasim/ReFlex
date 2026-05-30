@@ -1356,3 +1356,184 @@ html.ff-dark .ff-updates-pull-tab:hover {
 html.ff-dark .ff-updates-empty {
     color: #94a3b8;
 }
+
+/* ── Dark Mode: Login Form & White Container Fix ──────────────────────────── */
+/* Catch any divs or containers with white/light background colors */
+html.ff-dark [style*="background: white"],
+html.ff-dark [style*="background: #fff"],
+html.ff-dark [style*="background: #ffffff"],
+html.ff-dark [style*="background-color: white"],
+html.ff-dark [style*="background-color: #fff"],
+html.ff-dark [style*="background-color: #ffffff"] {
+    background-color: #1e293b !important;
+    color: #cbd5e1 !important;
+}
+
+/* Login form wrapper & container elements */
+html.ff-dark .m-login,
+html.ff-dark .login,
+html.ff-dark .login-form,
+html.ff-dark .form-wrapper,
+html.ff-dark .signin-wrapper,
+html.ff-dark .auth-container {
+    background: #1e293b !important;
+    color: #cbd5e1 !important;
+}
+
+/* Generic divs that may contain form elements */
+html.ff-dark div[style*="background"] {
+    background-color: #1e293b !important;
+}
+
+/* Ensure form labels are visible in dark mode */
+html.ff-dark label,
+html.ff-dark .form-label {
+    color: #e2e8f0 !important;
+}
+
+/* Form group containers */
+html.ff-dark .form-group {
+    color: #cbd5e1 !important;
+}
+
+/* Ensure input fields and textareas remain properly styled */
+html.ff-dark input:focus,
+html.ff-dark textarea:focus,
+html.ff-dark select:focus,
+html.ff-dark .form-control:focus {
+    background: #263447 !important;
+    border-color: #4f46e5 !important;
+    color: #e2e8f0 !important;
+    outline: none !important;
+}
+
+/* ── Dark Mode: Login Form Complete Styling ──────────────────────────────── */
+/* Login page heading */
+html.ff-dark .m-login__head,
+html.ff-dark .login-title,
+html.ff-dark .signin-title,
+html.ff-dark h1:not([class*="ff-"]),
+html.ff-dark h2:not([class*="ff-"]),
+html.ff-dark h3:not([class*="ff-"]) {
+    color: #f1f5f9 !important;
+}
+
+/* Login form labels */
+html.ff-dark .m-login__form label,
+html.ff-dark .login label,
+html.ff-dark .form-group label,
+html.ff-dark label:not([class*="ff-"]) {
+    color: #cbd5e1 !important;
+    font-weight: 500 !important;
+}
+
+/* Login form helper text */
+html.ff-dark .m-login__form small,
+html.ff-dark .form-text,
+html.ff-dark small:not([class*="ff-"]),
+html.ff-dark .help-block {
+    color: #64748b !important;
+}
+
+/* Login form wrapper */
+html.ff-dark .m-login,
+html.ff-dark .m-login__body,
+html.ff-dark .m-login__form,
+html.ff-dark .m-login__wrapper,
+html.ff-dark .login-form,
+html.ff-dark .auth-form {
+    background: transparent !important;
+    color: #cbd5e1 !important;
+}
+
+/* Input groups and addon styling */
+html.ff-dark .m-login__form .input-group,
+html.ff-dark .m-login__form .form-group,
+html.ff-dark .form-group:not([class*="ff-"]) {
+    margin-bottom: 18px !important;
+}
+
+/* Checkbox styling in login */
+html.ff-dark input[type="checkbox"],
+html.ff-dark input[type="checkbox"] + label,
+html.ff-dark .m-checkbox,
+html.ff-dark .m-checkbox__label {
+    color: #cbd5e1 !important;
+}
+
+html.ff-dark input[type="checkbox"]:checked + label {
+    color: #e2e8f0 !important;
+}
+
+/* Login form links */
+html.ff-dark .m-login__form a:not([class*="btn"]),
+html.ff-dark .login a:not([class*="btn"]),
+html.ff-dark .form-group a {
+    color: #818cf8 !important;
+}
+
+html.ff-dark .m-login__form a:hover:not([class*="btn"]),
+html.ff-dark .login a:hover:not([class*="btn"]) {
+    color: #a5b4fc !important;
+}
+
+/* Primary sign-in button */
+html.ff-dark .m-login__form .btn-primary,
+html.ff-dark .btn-primary {
+    background: #4f46e5 !important;
+    border-color: #4f46e5 !important;
+    color: #fff !important;
+}
+
+html.ff-dark .m-login__form .btn-primary:hover,
+html.ff-dark .btn-primary:hover {
+    background: #4338ca !important;
+    border-color: #4338ca !important;
+}
+
+/* Secondary buttons */
+html.ff-dark .m-login__form .btn-secondary,
+html.ff-dark .m-login__form .btn-default,
+html.ff-dark .btn-secondary,
+html.ff-dark .btn-default {
+    background: #263447 !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: #cbd5e1 !important;
+}
+
+html.ff-dark .m-login__form .btn-secondary:hover,
+html.ff-dark .m-login__form .btn-default:hover,
+html.ff-dark .btn-secondary:hover,
+html.ff-dark .btn-default:hover {
+    background: #2d3f55 !important;
+    border-color: rgba(255,255,255,0.18) !important;
+    color: #e2e8f0 !important;
+}
+
+/* Input field icons (prepend/append icons) */
+html.ff-dark .input-group-text,
+html.ff-dark .input-group-addon,
+html.ff-dark [class*="input-icon"],
+html.ff-dark .form-control-icon {
+    background: #263447 !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: #94a3b8 !important;
+}
+
+/* Icon inside input fields or adjacent to them */
+html.ff-dark .form-control + .input-group-text,
+html.ff-dark input + [class*="icon"],
+html.ff-dark .input-group .input-group-text {
+    background: #263447 !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: #cbd5e1 !important;
+}
+
+/* SVG and image icons within form groups */
+html.ff-dark .form-group svg,
+html.ff-dark .input-group svg,
+html.ff-dark .form-group img[class*="icon"],
+html.ff-dark .input-group img[class*="icon"] {
+    filter: brightness(0.8) !important;
+    opacity: 0.9 !important;
+}
