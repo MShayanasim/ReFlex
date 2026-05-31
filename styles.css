@@ -750,6 +750,15 @@ html.ff-enabled .m-menu__item--active > .m-menu__link .m-menu__link-text {
     border-color: rgba(250, 204, 21, 0.35);
 }
 .ff-theme-icon { font-size: 14px; line-height: 1; }
+.ff-login-theme-switch {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 9999;
+    background: #1e293b;
+    border-color: #334155;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 /* ── DARK MODE — html.ff-dark ─────────────────────────────────────────────*/
@@ -1092,6 +1101,53 @@ html.ff-dark table thead th,
 html.ff-dark table thead th * {
     color: #cbd5e1 !important;
 }
+}
+
+/* ── Dark Mode: Dropdowns & Profile Menu ─────────────────────────────────── */
+html.ff-dark .dropdown-menu,
+html.ff-dark .m-dropdown__wrapper,
+html.ff-dark .m-dropdown__inner {
+    background-color: #1e293b !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+}
+
+html.ff-dark .m-dropdown__header {
+    background-color: #1a2540 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+html.ff-dark .m-dropdown__body,
+html.ff-dark .m-dropdown__content {
+    background-color: #1e293b !important;
+}
+
+html.ff-dark .m-nav .m-nav__item > .m-nav__link .m-nav__link-text,
+html.ff-dark .m-nav .m-nav__item > .m-nav__link .m-nav__link-icon {
+    color: #cbd5e1 !important;
+}
+
+html.ff-dark .m-nav .m-nav__item > .m-nav__link:hover {
+    background-color: rgba(255,255,255,0.05) !important;
+}
+
+html.ff-dark .m-dropdown.m-dropdown--arrow .m-dropdown__arrow {
+    color: #1e293b !important;
+}
+
+/* Ensure any buttons (like Logout) inside the dropdown are highly visible */
+html.ff-dark .m-dropdown__body .btn {
+    background-color: #4f46e5 !important;
+    border-color: #4f46e5 !important;
+    color: #ffffff !important;
+}
+html.ff-dark .m-dropdown__body .btn:hover {
+    background-color: #4338ca !important;
+}
+html.ff-dark .m-dropdown__body .btn * {
+    color: #ffffff !important;
+}
+
 
 
 
@@ -1356,3 +1412,30 @@ html.ff-dark .ff-updates-pull-tab:hover {
 html.ff-dark .ff-updates-empty {
     color: #94a3b8;
 }
+
+/* ── LOGIN PAGE DARK MODE ───────────────────────────────────────────────*/
+html.ff-dark .m-login__aside {
+    background: #0f172a !important;
+}
+
+html.ff-dark .m-login__title,
+html.ff-dark .m-login__forget-password h3 {
+    color: #f8fafc !important;
+}
+
+html.ff-dark .m-login__aside h5 {
+    color: #cbd5e1 !important;
+}
+
+html.ff-dark .m-login__desc,
+html.ff-dark .m-form__help,
+html.ff-dark .m-login__aside .m-checkbox {
+    color: #94a3b8 !important;
+}
+
+html.ff-dark .input-group-addon {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: #64748b !important;
+}
+

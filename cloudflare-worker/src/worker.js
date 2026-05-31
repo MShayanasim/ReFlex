@@ -1,0 +1,238 @@
+// Global state for simple in-memory rate limiting across worker invocations
+const rateLimitMap = new Map();
+let lastCleanup = Date.now();
+
+
+export default {
+  async fetch(request, env, ctx) {
+    const requestOrigin = request.headers.get("Origin");
+    const allowedOrigins = [
+      "chrome-extension://hljpjnkdjelocgcgocknamkjafgbfkfg",
+      "https://flexstudent.nu.edu.pk"
+    ];
+    const corsOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
+
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": corsOrigin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+
+    // Handle CORS preflight request
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    // We only accept POST requests
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405, headers: corsHeaders });
+    }
+
+    const url = new URL(request.url);
+
+    try {
+      const data = await request.json();
+
+      // OAuth Exchange Endpoint
+      if (url.pathname === '/api/auth') {
+        const { code, redirect_uri, client_id } = data;
+        
+        if (!code || !redirect_uri || !client_id) {
+          return new Response(JSON.stringify({ error: "Missing auth parameters" }), { status: 400, headers: corsHeaders });
+        }
+
+        if (!env.GOOGLE_CLIENT_SECRET) {
+           return new Response(JSON.stringify({ error: "Server missing Google Client Secret" }), { status: 500, headers: corsHeaders });
+        }
+
+        const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: client_id,
+            client_secret: env.GOOGLE_CLIENT_SECRET, // Secret securely stored!
+            code: code,
+            grant_type: "authorization_code",
+            redirect_uri: redirect_uri
+          })
+        });
+
+        const tokenData = await tokenResponse.json();
+        
+        if (!tokenResponse.ok) {
+           return new Response(JSON.stringify({ error: "Failed to exchange token", details: tokenData }), {
+             status: tokenResponse.status,
+             headers: { "Content-Type": "application/json", ...corsHeaders }
+           });
+        }
+
+        return new Response(JSON.stringify(tokenData), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        });
+      }
+
+      // Email Sending Endpoint
+      if (url.pathname === '/api/email') {
+        // Verify Google OAuth Token to prevent abuse
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Missing or invalid Authorization header" }), { status: 401, headers: corsHeaders });
+      }
+      
+      const token = authHeader.split(" ")[1];
+
+      // The extension will send the user's email and the update text
+      const userEmail = data.email; 
+      const updateMessage = data.message;
+      
+      if (!userEmail || !updateMessage) {
+        return new Response(JSON.stringify({ error: "Missing email or message data" }), { status: 400, headers: corsHeaders });
+      }
+
+      // CRITICAL SECURITY FIX 2: Rate Limiting
+      // Protect your Brevo quota from malicious draining (where an attacker spams their own email)
+      const ip = request.headers.get("cf-connecting-ip") || "unknown-ip";
+      const rateLimitKey = `${userEmail}-${ip}`;
+      const now = Date.now();
+      
+      // Lazy cleanup of the map every 10 minutes
+      if (now - lastCleanup > 600000) {
+        for (const [key, timestamp] of rateLimitMap.entries()) {
+          if (now - timestamp > 600000) {
+            rateLimitMap.delete(key);
+          }
+        }
+        lastCleanup = now;
+      }
+
+      const lastRequestTime = rateLimitMap.get(rateLimitKey);
+      
+      // Limit to 1 email every 60 seconds per User/IP combination
+      if (lastRequestTime && (now - lastRequestTime < 60000)) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait 60 seconds." }), { status: 429, headers: corsHeaders });
+      }
+      rateLimitMap.set(rateLimitKey, now);
+
+      // Verify the token with Google
+      const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${token}`);
+      if (!tokenInfoRes.ok) {
+        return new Response(JSON.stringify({ error: "Invalid Google token" }), { status: 401, headers: corsHeaders });
+      }
+      
+      const tokenInfo = await tokenInfoRes.json();
+      if (tokenInfo.email !== userEmail) {
+        return new Response(JSON.stringify({ error: "Token email does not match requested email" }), { status: 403, headers: corsHeaders });
+      }
+      
+      // CRITICAL SECURITY FIX: Ensure the token was generated for OUR Extension Client ID
+      if (tokenInfo.aud !== "650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com") {
+        return new Response(JSON.stringify({ error: "Unauthorized Client ID" }), { status: 403, headers: corsHeaders });
+      }
+
+      // Retrieve all available keys configured in Cloudflare secrets
+      const apiKeys = [
+        env.BREVO_API_KEY, 
+        env.BREVO_API_KEY_2,
+        env.BREVO_API_KEY_3,
+        env.BREVO_API_KEY_4
+      ].filter(Boolean); // Filters out any undefined keys
+
+      if (apiKeys.length === 0) {
+        return new Response(JSON.stringify({ error: "Server missing Brevo API keys" }), { status: 500, headers: corsHeaders });
+      }
+
+      let emailResult;
+      let res;
+      let usedKeyIndex = 0;
+
+      // Attempt to send the email, falling back to the next key if quota/rate limits hit
+      for (let i = 0; i < apiKeys.length; i++) {
+        res = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "api-key": apiKeys[i],
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            sender: {
+              name: "ReFlex Notifications",
+              email: "shayanasim.dev@gmail.com"
+            },
+            to: [{ email: userEmail }],
+            subject: "ReFlex: Grade/Portal Update Detected!",
+            htmlContent: `
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <div style="background-color: #4f46e5; padding: 24px; text-align: center;">
+                  <h2 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.5px;">ReFlex Alert</h2>
+                </div>
+                <div style="padding: 32px 24px;">
+                  <p style="color: #374151; font-size: 16px; margin-top: 0;">Hi there,</p>
+                  <p style="color: #4b5563; font-size: 15px; line-height: 1.5;">ReFlex has detected a new update on your FAST-NUCES portal:</p>
+                  
+                  <div style="background-color: #f3f4f6; border-left: 4px solid #4f46e5; padding: 16px; margin: 24px 0; border-radius: 0 8px 8px 0;">
+                    <p style="color: #111827; font-size: 15px; font-weight: 600; margin: 0; line-height: 1.4;">${updateMessage}</p>
+                  </div>
+                  
+                  <div style="text-align: center; margin-top: 32px;">
+                    <a href="https://flexstudent.nu.edu.pk/" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 15px;">
+                      Open Flex Portal
+                    </a>
+                  </div>
+                </div>
+                <div style="background-color: #f9fafb; padding: 16px; text-align: center; border-top: 1px solid #e5e7eb;">
+                  <p style="color: #9ca3af; font-size: 12px; margin: 0;">Sent securely via the ReFlex Extension.</p>
+                </div>
+              </div>
+            `
+          })
+        });
+
+        const textResponse = await res.text();
+        try {
+          emailResult = JSON.parse(textResponse);
+        } catch (e) {
+          emailResult = textResponse; // Fallback to raw text if Brevo returns non-JSON
+        }
+
+        // If the request was successful, break the loop
+        if (res.ok) {
+          usedKeyIndex = i + 1; // 1-indexed for logging clarity
+          break;
+        }
+
+        // If it's a 400 Bad Request, there's a problem with the payload (e.g., bad email address).
+        // Retrying won't fix it, so we break immediately.
+        if (res.status === 400) {
+          break;
+        }
+        
+        // Otherwise (e.g. 402 Payment Required, 403 Forbidden, 429 Too Many Requests), 
+        // we'll loop again and try the next API key!
+      }
+      
+      if (!res.ok) {
+        return new Response(JSON.stringify({ error: "Email delivery failed on all available keys", details: emailResult }), {
+          status: res.status,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, key_used: `BREVO_API_KEY_${usedKeyIndex}`, brevo: emailResult }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders }
+      });
+
+      }
+      
+      return new Response(JSON.stringify({ error: "Endpoint not found" }), { status: 404, headers: corsHeaders });
+
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), { 
+        status: 500, 
+        headers: { "Content-Type": "application/json", ...corsHeaders } 
+      });
+    }
+  }
+};

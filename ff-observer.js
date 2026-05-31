@@ -148,8 +148,14 @@ function startGuardWatcher(url) {
         }
     });
 
-    const guardTarget = document.body; // Safest target to survive SPA router node replacement
-    guardObserver.observe(guardTarget, { childList: true, subtree: true });
+    const rootNode = document.getElementById('ff-root');
+    const guardTarget = rootNode ? rootNode.parentElement : document.body; 
+    
+    // If we have the exact parent, we don't need expensive subtree tracking!
+    guardObserver.observe(guardTarget, { 
+        childList: true, 
+        subtree: guardTarget === document.body 
+    });
 }
 
 // ── SPA Navigation Observer ───────────────────────────────────────────────
@@ -502,8 +508,47 @@ function diffAndSave(marksData, callback) {
 
         // Compile set of changed keys (e.g. key|NEW or key|UPDATED) for rendering compatibility
         const changed = new Set();
+        const newUpdates = [];
         for (const uiKey in badgeTimestamps) {
             changed.add(uiKey + '|' + badgeTimestamps[uiKey].type);
+            
+            // Check if this badge was generated in this exact scan
+            if (badgeTimestamps[uiKey].timestamp === now) {
+                // e.g. "Software Engineering||Assignments||A1" -> "Software Engineering - Assignments - A1"
+                newUpdates.push(`${uiKey.replace(/\|\|/g, ' > ')} (${badgeTimestamps[uiKey].type})`);
+            }
+        }
+
+        // Trigger Email Notification for new updates
+        if (newUpdates.length > 0 && !isFirstRun) {
+            chrome.storage.local.get(['userEmail', 'accessToken'], (res) => {
+                if (res.userEmail && res.accessToken) {
+                    const messageStr = newUpdates.join('<br>');
+                    // Deployed Cloudflare Worker URL
+                    const WORKER_URL = 'https://reflex-notifier.shayanasim-dev.workers.dev/api/email';
+                    
+                    fetch(WORKER_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + res.accessToken
+                        },
+                        body: JSON.stringify({
+                            email: res.userEmail,
+                            message: messageStr
+                        })
+                    })
+                    .then(async (response) => {
+                        if (!response.ok) {
+                            const errText = await response.text();
+                            console.error("ReFlex: Email Notification Failed! Status:", response.status, "Error:", errText);
+                        } else {
+                            console.log("ReFlex: Email Notification Sent Successfully!");
+                        }
+                    })
+                    .catch(err => console.error("ReFlex: Network Error during Email Notification:", err));
+                }
+            });
         }
 
         // 3. Save snapshots to local (bulky, no quota issues)

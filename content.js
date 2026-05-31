@@ -20,8 +20,10 @@
             // Theme — apply immediately to avoid flash
             if (data.ffTheme === 'dark') {
                 document.documentElement.classList.add('ff-dark');
+                window.dispatchEvent(new CustomEvent('ff-theme-changed', { detail: { isDark: true } }));
             } else {
                 document.documentElement.classList.remove('ff-dark');
+                window.dispatchEvent(new CustomEvent('ff-theme-changed', { detail: { isDark: false } }));
             }
             // UI enabled state
             ffUIEnabled = data.flexUiEnabled !== false;
@@ -109,12 +111,14 @@ function ffInjectTopbarToggle() {
             // Show original UI: remove our root, reveal hidden native elements
             document.getElementById('ff-root')?.remove();
             document.documentElement.classList.remove('ff-veil-native');
+            document.documentElement.classList.remove('ff-enabled'); // Remove sidebar aesthetic
             document.querySelectorAll('[data-ff-hidden]').forEach(el => {
                 el.style.display = '';
                 delete el.dataset.ffHidden;
             });
         } else {
             // Restore ReFlex UI: re-run the appropriate renderer
+            document.documentElement.classList.add('ff-enabled'); // Restore sidebar aesthetic
             const url = location.href.toLowerCase();
             if (url.includes('marks'))      window.ffRunMarks      && window.ffRunMarks();
             else if (url.includes('transcript')) window.ffRunTranscript && window.ffRunTranscript();
@@ -149,6 +153,83 @@ function ffInjectTopbarToggle() {
     nav.prepend(wrapper);
 }
 window.ffInjectTopbarToggle = ffInjectTopbarToggle;
+
+// ══════════════════════════════════════════════════════════════════════════
+// 2.5. LOGIN PAGE TOGGLE & RECAPTCHA THEMING
+// ══════════════════════════════════════════════════════════════════════════
+
+function ffInjectLoginToggle() {
+    if (!window.location.pathname.toLowerCase().includes('/login')) return;
+    if (document.getElementById('ff-login-theme-toggle')) return;
+
+    const isDark = document.documentElement.classList.contains('ff-dark');
+    const themeBtn = document.createElement('div');
+    themeBtn.id = 'ff-login-theme-toggle';
+    themeBtn.className = 'ff-theme-switch ff-login-theme-switch' + (isDark ? ' dark' : '');
+    themeBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? '☀️' : '🌙'}</span>`;
+    
+    themeBtn.addEventListener('click', () => {
+        const nowDark = document.documentElement.classList.toggle('ff-dark');
+        themeBtn.classList.toggle('dark', nowDark);
+        themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? '☀️' : '🌙';
+        themeBtn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+        
+        try {
+            chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' }, () => {
+                if (chrome.runtime.lastError) { /* ignore */ }
+            });
+        } catch (e) {
+            console.warn('ReFlex: Could not save theme state.');
+        }
+
+        window.dispatchEvent(new CustomEvent('ff-theme-changed', { detail: { isDark: nowDark } }));
+    });
+
+    document.body.appendChild(themeBtn);
+}
+window.ffInjectLoginToggle = ffInjectLoginToggle;
+
+function ffInjectRecaptchaThemer() {
+    if (!window.location.pathname.toLowerCase().includes('/login')) return;
+
+    // Inject main-world script to intercept grecaptcha
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('recaptcha-themer.js');
+    (document.head || document.documentElement).appendChild(script);
+
+    // DOM Observer for existing/new recaptcha elements
+    const observer = new MutationObserver((mutations) => {
+        const isDark = document.documentElement.classList.contains('ff-dark');
+        if (!isDark) return;
+        
+        let shouldReset = false;
+        mutations.forEach(m => {
+            m.addedNodes.forEach(n => {
+                if (n.nodeType === 1) {
+                    if (n.classList && n.classList.contains('g-recaptcha')) {
+                        if (!n.hasAttribute('data-theme')) {
+                            n.setAttribute('data-theme', 'dark');
+                            shouldReset = true;
+                        }
+                    } else if (n.querySelectorAll) {
+                        n.querySelectorAll('.g-recaptcha:not([data-theme="dark"])').forEach(el => {
+                            el.setAttribute('data-theme', 'dark');
+                            shouldReset = true;
+                        });
+                    }
+                }
+            });
+        });
+        
+        if (shouldReset) {
+             window.dispatchEvent(new CustomEvent('ff-theme-changed', { detail: { isDark: true } }));
+        }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+window.ffInjectRecaptchaThemer = ffInjectRecaptchaThemer;
 
 // ══════════════════════════════════════════════════════════════════════════
 // 3. SHARED HELPERS
@@ -872,9 +953,25 @@ window.ffRunTranscript = () => { if (typeof runTranscript === 'function') runTra
         _watchStarted = true;
         window.ffWatch();
     }
-    if (typeof window.ffWatch === 'function') {
+    
+    function initReFlex() {
         startWatch();
+        
+        const injectLoginFeatures = () => {
+            if (window.ffInjectLoginToggle) window.ffInjectLoginToggle();
+            if (window.ffInjectRecaptchaThemer) window.ffInjectRecaptchaThemer();
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', injectLoginFeatures);
+        } else {
+            injectLoginFeatures();
+        }
+    }
+
+    if (typeof window.ffWatch === 'function') {
+        initReFlex();
     } else {
-        document.addEventListener('DOMContentLoaded', startWatch);
+        document.addEventListener('DOMContentLoaded', initReFlex);
     }
 })();

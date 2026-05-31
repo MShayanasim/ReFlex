@@ -55,7 +55,7 @@
         if (!courseName) {
             const portlet = table.closest('.m-portlet');
             const headEl = portlet && portlet.querySelector('.m-portlet__head-text');
-            courseName = headEl ? headEl.textContent.trim() : 'Unknown Course';
+            courseName = headEl ? headEl.textContent.trim() : `Unknown Course ${marksData.length + 1}`;
         }
 
         let courseData = marksData.find(c => c.courseName === courseName);

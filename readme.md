@@ -15,7 +15,7 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 |---|---|---|
 | Visual design | Dated, bright, cluttered | Premium glassmorphic UI (Dark & Light) |
 | Marks layout | One massive scrolling table per course | Compact horizontal tabs, zero scrolling |
-| Grade changes | No notification | NEW & UPDATED badges on every change |
+| Grade changes | No notification | Background push email alerts & visual badges |
 | GPA projection | None | Live target grade calculator |
 | Class comparison | Raw numbers only | Visual progress bar with class avg pointer |
 | Min / Max marks | Buried in table | Highlighted pill badge per assessment |
@@ -57,6 +57,7 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 - **Global Credit-Hour Cache** — ReFlex reads your transcript data and stores credit-hour information locally, which it then uses to power accurate GPA calculations and attendance heuristics across the portal.
 
 #### 🧭 Navigation & Global Controls
+- **Automated Email Notifications** — The crown jewel of ReFlex. When enabled, ReFlex silently monitors your portal in the background every 30 minutes. If a teacher uploads a new mark or changes an existing one, you immediately receive a beautifully formatted email alert directly to your Google inbox! No more obsessively refreshing the portal during finals week.
 - **Live Sidebar Pointer** — A sharp active-page indicator follows your navigation across every section of the portal — Home, Attendance, Marks, Transcript, Course Registration, Fee Details, and more — without a page reload.
 - **One-Click Native Toggle** — A minimal, premium toggle switch lives permanently in the portal's top navigation bar, right next to your profile. Flip it once to instantly reveal the original native Flex UI. Flip it back to restore ReFlex. No refresh required.
 - **SPA-Aware Navigation** — ReFlex fully respects the portal's single-page navigation. It watches for URL changes, tears down cleanly, and re-injects the right UI for every page you land on.
@@ -69,6 +70,8 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 ---
 
 ### 🛡️ Permissions Used
+- `identity` & `identity.email` — Securely fetches your Google email address to send you grade notification alerts (no passwords accessed).
+- `alarms` & `offscreen` — Allows the extension to silently wake up in the background and check for grade updates without opening visible browser tabs.
 - `storage` — Saves your marks snapshot locally so it can detect NEW and UPDATED grades, and saves your UI preferences.
 - `activeTab` — Allows the extension to interact with the currently active portal tab without requiring broad history permissions.
 - `host_permissions` — Scoped exclusively to `*://*.nu.edu.pk/*` to inject the UI securely on university pages only.

@@ -1,0 +1,13 @@
+name = "reflex-notifier"
+main = "src/worker.js"
+compatibility_date = "2024-05-31"
+
+# To deploy this worker locally, you will run:
+# wrangler deploy
+
+# Before deploying, make sure to add your secrets to Cloudflare via the CLI:
+# wrangler secret put KATBAN_API_KEY
+# (When prompted, paste your 'Katban' key or whatever string you want to use for security)
+#
+# wrangler secret put RESEND_API_KEY
+# (When prompted, paste your Resend API key: re_PkxxFbxt_...)

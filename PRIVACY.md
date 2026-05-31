@@ -1,60 +1,64 @@
 # ReFlex — Privacy Policy
 
-**Last updated:** May 17, 2026
+**Last updated:** June 1, 2026
 
 ## Overview
 
-ReFlex is a browser extension that enhances the visual experience of the FAST-NUCES Flex student portal. This privacy policy explains what data the extension accesses, how it is used, and how it is stored.
+ReFlex is a browser extension that enhances the visual experience of the FAST-NUCES Flex student portal and provides automated grade notifications. This privacy policy explains what data the extension accesses, how it is used, and how it is protected.
 
-## Data Collection
+## Data Collection & Usage
 
-ReFlex does **not** collect, transmit, or share any personal data. Specifically:
+ReFlex is built with privacy as a core principle. The extension only requests the minimum data necessary to function:
 
-- **No analytics or tracking** — ReFlex does not include any analytics services, telemetry, or tracking pixels.
-- **No external network requests** — ReFlex does not send data to any server, API, or third-party service. All processing is performed entirely within your browser.
-- **No account or login data** — ReFlex never accesses, reads, or stores your Flex portal credentials.
+### 1. Flex Portal Data (Local Only)
+ReFlex reads content from the FAST-NUCES Flex portal pages (`*.nu.edu.pk`) to render its enhanced dashboard and detect grade changes. This includes:
+- **Marks data** — Assessment names, scores, weightages, and class averages.
+- **Transcript data** — Course names, codes, grades, credit hours, and GPA information.
+- **Attendance data** — Presence/absence records and lecture durations.
 
-## Data Accessed
+**How it is protected:** Your academic data is stored locally on your device using Chrome's built-in extension storage (`chrome.storage.local`). It is **never** transmitted to our servers, sold, or shared with any third party.
 
-ReFlex reads content from the FAST-NUCES Flex portal pages (`*.nu.edu.pk`) to render its enhanced dashboard. This includes:
+### 2. Google Account Email (For Notifications)
+To power the Automated Background Email Notifications feature, ReFlex requests access to your authenticated Google Account email address via the Chrome Identity API (`chrome.identity`).
 
-- **Marks data** — Assessment names, scores, weightages, and class averages displayed on the Marks page.
-- **Transcript data** — Course names, codes, grades, credit hours, and GPA information displayed on the Transcript page.
-- **Attendance data** — Presence/absence records and lecture durations displayed on the Attendance page.
+**How it is protected:** 
+- The extension only requests your email address. It never sees or has access to your Google password.
+- When a grade update is detected in the background, your email address and a brief text summary of the grade change are sent securely to our serverless Cloudflare Worker (`reflex-notifier`).
+- The Cloudflare Worker uses this data strictly to dispatch an email alert to you via an SMTP provider (Brevo).
+- The Cloudflare Worker operates completely statelessly. **Your email address and grade updates are never logged, saved, or stored in any database on our servers.** They exist in memory just long enough to send the email, and are immediately destroyed.
 
-This data is read directly from the page's HTML and is **never** transmitted outside your browser.
+## Data Stored Locally
 
-## Data Stored
+ReFlex uses Chrome's built-in extension storage to persist:
 
-ReFlex uses Chrome's built-in extension storage (`chrome.storage.sync`) to persist:
+| Data | Purpose | Storage Type |
+|------|---------|--------------|
+| UI theme preference | Remembers your chosen theme (light/dark) | `sync` |
+| UI toggle state | Remembers whether ReFlex UI is on or off | `sync` |
+| Email notifications state | Remembers if notifications are enabled/disabled | `sync` |
+| Marks snapshot | A local cache of your marks, used to detect NEW/UPDATED grades and trigger email alerts | `local` |
 
-| Data | Purpose |
-|------|---------|
-| UI theme preference (light/dark) | Remembers your chosen theme |
-| UI toggle state (enabled/disabled) | Remembers whether ReFlex UI is on or off |
-| Marks snapshot | A local cache of your most recent marks, used solely to detect NEW and UPDATED grades on your next visit |
+All stored data can be cleared at any time by uninstalling the extension.
 
-All stored data:
-- Resides **entirely on your device** (or synced via your Google account if Chrome Sync is enabled).
-- Can be cleared at any time by uninstalling the extension.
-- Is **never** sent to any external server.
-
-## Permissions
+## Permissions Explained
 
 | Permission | Reason |
 |------------|--------|
-| `storage` | Save your theme preference and marks snapshot locally |
-| `activeTab` | Reload the active tab when you toggle the extension on/off from the popup |
-| `host_permissions` (`*.nu.edu.pk`) | Inject the enhanced UI only on the FAST-NUCES Flex portal |
+| `identity` | Required to securely fetch your Google email address for grade notification alerts without requiring a password. |
+| `identity.email` | Specifies that only the email address is needed from the identity scope. |
+| `alarms` | Allows the extension to wake up periodically in the background to check for new grades. |
+| `offscreen` | Required by Manifest V3 to parse the Flex portal HTML in the background without opening visible tabs. |
+| `storage` | Required to save your theme preference, settings, and local marks snapshot. |
+| `host_permissions` | Scoped exclusively to `*://*.nu.edu.pk/*` to inject the UI securely on university pages and fetch grade updates. |
 
 ## Third-Party Services
 
-ReFlex uses **no** third-party services, libraries, or CDNs. All assets (including fonts) are bundled locally within the extension.
+ReFlex uses a secure, serverless Cloudflare Worker solely for routing emails via Brevo SMTP. No analytics services, telemetry, tracking pixels, or external libraries (e.g. React, jQuery) are used in the extension frontend.
 
 ## Changes to This Policy
 
-If this privacy policy is updated, the changes will be reflected in this document with an updated date. No data practices will change without updating this policy.
+If this privacy policy is updated to reflect new features or permissions, the changes will be reflected in this document with an updated date.
 
 ## Contact
 
-If you have any questions about this privacy policy, please open an issue on the [GitHub repository](https://github.com/MShayanasim/ReFlex).
+If you have any questions about this privacy policy or how your data is handled, please open an issue on the [GitHub repository](https://github.com/MShayanasim/ReFlex).

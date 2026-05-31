@@ -1,18 +1,23 @@
 {
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAknxP0CQwxachPFMfUcoKqP1o3J3Vn6p9dPCZIUU7bpHamglxSprJFpWaYAb1jxDe+9LolaLzUSaVGyZ9Lq02f/2hN33xBmUovYvwx1GbzwxbkRmhjbJuv8LJs6eGruRQavVLRiScWpGtsHO/pC6a1wz5DDHtp5K5XsFryRFkD51le3p1lIuipbM8ZewHvA4FcxqSNau4jxYxc9nk2ykDKvk5pnXbOQv2VncXi3WNYeTW67yC6S4RUUIaP8PCV42jxYsJ2nSvy5QfBE6QFnqORs/1ETDlVQFsJ4gmvZv4tb8WkopNll0NSiBnUDyC7WFFaeO2Qypqq9nH4QMkzEffHwIDAQAB",
   "manifest_version": 3,
   "name": "ReFlex",
   "version": "1.1.0",
   "minimum_chrome_version": "105",
   "description": "Redesigns the FAST-NUCES Flex portal with a premium dashboard, dark mode, GPA projections, and live grade change tracking.",
-  "permissions": ["storage", "activeTab"],
-  "host_permissions": ["*://*.nu.edu.pk/*"],
+  "permissions": ["storage", "activeTab", "identity"],
+  "host_permissions": ["*://flexstudent.nu.edu.pk/*"],
+  "oauth2": {
+    "client_id": "650320840540-d1u14vt9joknti895s6ob3a4jktiust6.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/userinfo.email"]
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "ReFlex Settings"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.nu.edu.pk/*"],
+      "matches": ["*://flexstudent.nu.edu.pk/*"],
       "css": ["styles.css"],
       "js": ["ff-observer.js", "ff-attendance.js", "runMarks.js", "runTranscript.js", "content.js"],
       "run_at": "document_start"
@@ -26,8 +31,8 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["fonts/*", "reflex-icon-24.png", "reflex-icon-16.png"],
-      "matches": ["*://*.nu.edu.pk/*"]
+      "resources": ["fonts/*", "reflex-icon-24.png", "reflex-icon-16.png", "recaptcha-themer.js"],
+      "matches": ["*://flexstudent.nu.edu.pk/*"]
     }
   ]
 }
