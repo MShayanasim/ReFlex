@@ -129,4 +129,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
+
+    // Replay Tutorial logic
+    const replayBtn = document.getElementById('replayBtn');
+    if (replayBtn) {
+        replayBtn.addEventListener('click', () => {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs[0]) {
+                    chrome.tabs.sendMessage(tabs[0].id, { action: 'REPLAY_TUTORIAL' })
+                        .then(() => {
+                            window.close(); // Close the popup if successful
+                        })
+                        .catch(() => {
+                            // The receiving end doesn't exist (e.g. not on the Flex portal)
+                            replayBtn.style.color = 'var(--danger-color)';
+                            setTimeout(() => replayBtn.style.color = 'var(--text-secondary)', 2000);
+                        });
+                }
+            });
+        });
+        
+        // Add hover effect
+        replayBtn.addEventListener('mouseover', () => replayBtn.style.color = '#fff');
+        replayBtn.addEventListener('mouseout', () => replayBtn.style.color = 'var(--text-secondary)');
+    }
 });

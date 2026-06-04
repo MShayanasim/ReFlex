@@ -45,9 +45,18 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     // Intentionally empty.
 });
 
-// Listener for NEW_MARKS_DATA trigger from background
+// Listener for messages from popup and background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'NEW_MARKS_DATA') {
+    if (request.action === 'REPLAY_TUTORIAL') {
+        const url = location.href.toLowerCase();
+        if (url.includes('marks') && window.ffRunTutorial) {
+            // Reset the state so it doesn't immediately exit
+            chrome.storage.local.set({ ff_tutorial_status: 'in_progress' }, () => {
+                window.ffRunTutorial();
+            });
+        }
+        sendResponse({ success: true });
+    } else if (request.action === 'NEW_MARKS_DATA') {
         const url = location.href.toLowerCase();
         if (!url.includes('marks')) return; // Context Awareness
 
@@ -587,10 +596,11 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
     titleWrapper.style.gap = '20px'; // Increased spacing
     
     const title = document.createElement('h2');
-    title.innerHTML = `📊 Marks`;
+    title.innerHTML = `Marks`;
     title.style.margin = '0';
     
     const syncBtn = document.createElement('div');
+    syncBtn.id = 'ff-sync-marks-btn';
     syncBtn.title = 'Sync Marks';
     syncBtn.style.cssText = 'cursor: pointer; height: 32px; padding: 0 12px; border-radius: 6px; background: var(--card-bg); display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border-color); color: var(--text-muted); font-size: 13px; font-weight: 500; transition: all 0.2s;';
     syncBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.4s;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Sync marks</span>`;
@@ -945,6 +955,18 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             _crCache[codeMatch[1].toUpperCase()] = hrs;
         }
     });
+
+    // ── TRIGGER FIRST-TIME TUTORIAL ──
+    try {
+        chrome.storage.local.get(['ff_tutorial_status'], (res) => {
+            if (!res.ff_tutorial_status || res.ff_tutorial_status === 'unseen') {
+                chrome.storage.local.set({ ff_tutorial_status: 'in_progress' });
+                setTimeout(() => {
+                    if (window.ffRunTutorial) window.ffRunTutorial();
+                }, 800); // Wait for DOM injection and CSS animations to settle
+            }
+        });
+    } catch(e) {}
 }
 window.ffRunMarks = (isSilent) => { if (typeof runMarks === 'function') runMarks(isSilent); };
 
@@ -1311,6 +1333,222 @@ function renderTranscriptDashboard(semesters) {
 window.renderMarksDashboard = renderMarksDashboard;
 window.renderTranscriptDashboard = renderTranscriptDashboard;
 window.ffRunTranscript = () => { if (typeof runTranscript === 'function') runTranscript(); };
+
+// ══════════════════════════════════════════════════════════════════════════
+// 6. TUTORIAL ENGINE
+// ══════════════════════════════════════════════════════════════════════════
+
+window.ffRunTutorial = function() {
+    if (document.getElementById('ff-tutorial-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'ff-tutorial-overlay';
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); z-index: 99999; pointer-events: all; transition: opacity 0.3s ease; opacity: 0;';
+    document.body.appendChild(overlay);
+
+    const steps = [];
+    
+    // Step 1: Updates Drawer
+    const updatesDrawer = document.querySelector('.ff-updates-drawer');
+    if (updatesDrawer) {
+        steps.push({
+            el: updatesDrawer,
+            title: 'Smart Notifications',
+            text: 'This dropdown tracks all your newly uploaded marks. You never have to click through courses to find what was just graded—it will be highlighted right here!',
+            pos: 'bottom',
+            offsetY: 35
+        });
+    }
+
+    // Step 2: Sync Marks
+    const syncBtn = document.getElementById('ff-sync-marks-btn');
+    if (syncBtn) {
+        steps.push({
+            el: syncBtn,
+            title: 'Live Sync Engine',
+            text: 'Because the original portal requires a full page reload to fetch new marks, click this to magically beam the latest marks straight from the server to your dashboard without refreshing!',
+            pos: 'bottom'
+        });
+    }
+
+    // Step 3: Progress Bar
+    const progCard = document.querySelector('.ff-progress-card');
+    if (progCard) {
+        steps.push({
+            el: progCard,
+            title: 'Your Overall Performance',
+            text: 'This stylish progress bar gives you a complete overview of your performance at a glance. It dynamically calculates your current standing based on uploaded marks.',
+            pos: 'bottom'
+        });
+    }
+
+    // Step 2: Target Grade Toggle
+    const targetRow = document.querySelector('.ff-gpa-row');
+    if (targetRow) {
+        steps.push({
+            el: targetRow,
+            title: 'Target Grade Calculator',
+            text: 'Want an A? Click here to change your Target Grade. ReFlex will instantly calculate exactly what you need to score on your remaining assessments to achieve it!',
+            pos: 'bottom'
+        });
+    }
+
+    // Step 3: Marks Card
+    const catCard = document.querySelector('.ff-card');
+    if (catCard) {
+        steps.push({
+            el: catCard,
+            title: 'Interactive Marks Cards',
+            text: 'These stylized cards beautifully display your assignments. Try clicking "My Score" or "Class Average" to instantly toggle your view between raw Marks and Weightage!',
+            pos: 'top'
+        });
+    }
+
+    if (steps.length === 0) {
+        chrome.storage.local.set({ ff_tutorial_status: 'completed' });
+        overlay.remove();
+        return;
+    }
+
+    let currentStep = 0;
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'ff-tutorial-tooltip';
+    tooltip.style.cssText = 'position: absolute; width: 320px; background: var(--card-bg, #1e1e2d); border: 1px solid var(--primary-color, #716aca); border-radius: 8px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 100000; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0; transform: translateY(10px); color: var(--text-color, #fff); font-family: inherit; pointer-events: all;';
+    
+    const tooltipTitle = document.createElement('h3');
+    tooltipTitle.style.cssText = 'margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: var(--primary-color, #716aca);';
+    
+    const tooltipText = document.createElement('p');
+    tooltipText.style.cssText = 'margin: 0 0 20px 0; font-size: 14px; line-height: 1.5; color: var(--text-muted, #a2a5b9);';
+    
+    const tooltipFooter = document.createElement('div');
+    tooltipFooter.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+    
+    const tooltipCounter = document.createElement('span');
+    tooltipCounter.style.cssText = 'font-size: 12px; font-weight: 600; color: var(--text-muted, #a2a5b9);';
+    
+    const tooltipBtns = document.createElement('div');
+    tooltipBtns.style.cssText = 'display: flex; gap: 10px;';
+    
+    const skipBtn = document.createElement('button');
+    skipBtn.textContent = 'Skip';
+    skipBtn.style.cssText = 'background: none; border: none; color: var(--text-muted, #a2a5b9); cursor: pointer; font-size: 13px; font-weight: 500; transition: color 0.2s;';
+    skipBtn.onmouseover = () => skipBtn.style.color = '#fff';
+    skipBtn.onmouseout = () => skipBtn.style.color = 'var(--text-muted, #a2a5b9)';
+    
+    const nextBtn = document.createElement('button');
+    nextBtn.textContent = 'Next';
+    nextBtn.style.cssText = 'background: var(--primary-color, #716aca); border: none; color: white; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.2s;';
+    nextBtn.onmouseover = () => nextBtn.style.background = '#5c54ad';
+    nextBtn.onmouseout = () => nextBtn.style.background = 'var(--primary-color, #716aca)';
+    
+    tooltipBtns.appendChild(skipBtn);
+    tooltipBtns.appendChild(nextBtn);
+    tooltipFooter.appendChild(tooltipCounter);
+    tooltipFooter.appendChild(tooltipBtns);
+    
+    tooltip.appendChild(tooltipTitle);
+    tooltip.appendChild(tooltipText);
+    tooltip.appendChild(tooltipFooter);
+    document.body.appendChild(tooltip);
+
+    let activeEl = null;
+    let activeOrigZ = '';
+    let activeOrigPos = '';
+
+    function renderStep() {
+        if (activeEl) {
+            activeEl.style.zIndex = activeOrigZ;
+            activeEl.style.position = activeOrigPos;
+        }
+
+        if (currentStep >= steps.length) {
+            cleanup();
+            return;
+        }
+
+        const step = steps[currentStep];
+        activeEl = step.el;
+        
+        activeOrigZ = activeEl.style.zIndex;
+        activeOrigPos = activeEl.style.position;
+        const compPos = window.getComputedStyle(activeEl).position;
+        if (compPos === 'static') activeEl.style.position = 'relative';
+        activeEl.style.zIndex = '100000';
+        
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        tooltipTitle.textContent = step.title;
+        tooltipText.textContent = step.text;
+        tooltipCounter.textContent = `${currentStep + 1} of ${steps.length}`;
+        nextBtn.textContent = currentStep === steps.length - 1 ? 'Finish' : 'Next';
+
+        positionTooltip(step);
+        
+        if (currentStep === 0) {
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                tooltip.style.opacity = '1';
+                tooltip.style.transform = 'translateY(0)';
+            }, 50);
+        }
+    }
+
+    function positionTooltip(step) {
+        if (!activeEl) return;
+        const rect = activeEl.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let top = 0;
+        let left = rect.left;
+        
+        let offsetY = step.offsetY || 0;
+        
+        if (step.pos === 'bottom') {
+            top = rect.bottom + 15 + offsetY;
+            if (top + (tooltipRect.height || 150) > window.innerHeight) top = rect.top - (tooltipRect.height || 150) - 15 - offsetY;
+        } else {
+            top = rect.top - (tooltipRect.height || 150) - 15 - offsetY;
+            if (top < 0) top = rect.bottom + 15 + offsetY;
+        }
+        
+        if (left + 320 > window.innerWidth) left = window.innerWidth - 340;
+        if (left < 20) left = 20;
+
+        tooltip.style.top = `${top + window.scrollY}px`;
+        tooltip.style.left = `${left + window.scrollX}px`;
+    }
+
+    const resizeHandler = () => {
+        if (activeEl) positionTooltip(steps[currentStep]);
+    };
+    window.addEventListener('resize', resizeHandler);
+
+    function cleanup() {
+        if (activeEl) {
+            activeEl.style.zIndex = activeOrigZ;
+            activeEl.style.position = activeOrigPos;
+        }
+        overlay.style.opacity = '0';
+        tooltip.style.opacity = '0';
+        tooltip.style.transform = 'translateY(10px)';
+        setTimeout(() => {
+            overlay.remove();
+            tooltip.remove();
+            window.removeEventListener('resize', resizeHandler);
+        }, 300);
+        chrome.storage.local.set({ ff_tutorial_status: 'completed' });
+    }
+
+    nextBtn.onclick = () => {
+        currentStep++;
+        renderStep();
+    };
+
+    skipBtn.onclick = cleanup;
+
+    renderStep();
+};
 
     let _watchStarted = false;
     function startWatch() {
