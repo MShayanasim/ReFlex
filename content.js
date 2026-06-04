@@ -51,7 +51,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const url = location.href.toLowerCase();
         if (url.includes('marks') && window.ffRunTutorial) {
             // Reset the state so it doesn't immediately exit
-            chrome.storage.local.set({ ff_tutorial_status: 'in_progress' }, () => {
+            chrome.storage.local.set({ ff_tutorial_v2_status: 'in_progress' }, () => {
                 window.ffRunTutorial();
             });
         }
@@ -388,6 +388,13 @@ function hideNative() {
 const _crCache = {};
 window.ffGetCreditHours = (code) => _crCache[code] ?? null;
 
+window.ffTearDownMarks = function() {
+    if (_outsideClickHandler) {
+        document.removeEventListener('click', _outsideClickHandler);
+        _outsideClickHandler = null;
+    }
+};
+
 // ══════════════════════════════════════════════════════════════════════════
 // 4. MARKS DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════
@@ -622,8 +629,27 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         } catch(e){}
     });
     
+    const gpaBtn = document.createElement('div');
+    gpaBtn.id = 'ff-gpa-planner-btn';
+    gpaBtn.title = 'GPA Planner';
+    gpaBtn.style.cssText = 'cursor: pointer; height: 32px; padding: 0 12px; border-radius: 6px; background: var(--card-bg); display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border-color); color: var(--text-muted); font-size: 13px; font-weight: 500; transition: all 0.2s;';
+    gpaBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg><span>GPA Planner</span>`;
+    
+    gpaBtn.addEventListener('mouseover', () => {
+        gpaBtn.style.borderColor = 'var(--text-color)';
+        gpaBtn.style.color = 'var(--text-color)';
+    });
+    gpaBtn.addEventListener('mouseout', () => {
+        gpaBtn.style.borderColor = 'var(--border-color)';
+        gpaBtn.style.color = 'var(--text-muted)';
+    });
+    gpaBtn.addEventListener('click', () => {
+        if (window.ffToggleGpaPlanner) window.ffToggleGpaPlanner(marksData);
+    });
+
     titleWrapper.appendChild(title);
     titleWrapper.appendChild(syncBtn);
+    titleWrapper.appendChild(gpaBtn);
     header.appendChild(titleWrapper);
     
     root.appendChild(header);
@@ -958,9 +984,9 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
 
     // ── TRIGGER FIRST-TIME TUTORIAL ──
     try {
-        chrome.storage.local.get(['ff_tutorial_status'], (res) => {
-            if (!res.ff_tutorial_status || res.ff_tutorial_status === 'unseen') {
-                chrome.storage.local.set({ ff_tutorial_status: 'in_progress' });
+        chrome.storage.local.get(['ff_tutorial_v2_status'], (res) => {
+            if (!res.ff_tutorial_v2_status || res.ff_tutorial_v2_status === 'unseen') {
+                chrome.storage.local.set({ ff_tutorial_v2_status: 'in_progress' });
                 setTimeout(() => {
                     if (window.ffRunTutorial) window.ffRunTutorial();
                 }, 800); // Wait for DOM injection and CSS animations to settle
@@ -1228,15 +1254,18 @@ function renderTranscriptDashboard(semesters) {
             const remarks = (c.remarks || '').trim().toUpperCase();
             const type = (c.type || '').trim().toUpperCase();
 
-            // Ignore incomplete, withdrawn, or non-credit courses
+            // Cache credit hours for all valid courses (even ongoing ones with '-' grade)
+            if (cr > 0 && type !== 'NON CREDIT' && remarks !== 'NC') {
+                const codeMatch = c.code.match(/^([A-Z]{2,4}\d{4})/i);
+                if (codeMatch) _crCache[codeMatch[1].toUpperCase()] = cr;
+            }
+
+            // Ignore incomplete, withdrawn, or non-credit courses for GPA calculation
             if (cr > 0 && grade && grade !== '-' && grade !== 'I' && grade !== 'W' && grade !== 'NC' && remarks !== 'NC' && type !== 'NON CREDIT') {
                 semPoints += pts * cr;
                 semCrHrs  += cr;
                 runningPoints += pts * cr;
                 runningCrHrs  += cr;
-                // Cache credit hours for attendance module
-                const codeMatch = c.code.match(/^([A-Z]{2,4}\d{4})/i);
-                if (codeMatch) _crCache[codeMatch[1].toUpperCase()] = cr;
             }
         });
         sem.sgpa = semCrHrs > 0 ? (semPoints / semCrHrs).toFixed(2) : '—';
@@ -1244,6 +1273,10 @@ function renderTranscriptDashboard(semesters) {
         sem.semCrHrs = semCrHrs;
     });
 
+    // Persist credit-hour cache to storage for GPA Planner
+    try {
+        chrome.storage.local.set({ ff_credit_cache: _crCache });
+    } catch(e) {}
 
     // Create Semester Tabs
     const tabsRow = document.createElement('div');
@@ -1371,7 +1404,28 @@ window.ffRunTutorial = function() {
         });
     }
 
-    // Step 3: Progress Bar
+    // Step 3: GPA Planner
+    let gpaSidebar = document.getElementById('ff-gpa-sidebar');
+    if (gpaSidebar && typeof _gpaSidebarOpen !== 'undefined' && _gpaSidebarOpen) {
+        steps.push({
+            el: gpaSidebar,
+            title: 'GPA Planner Dashboard',
+            text: 'Here is your interactive GPA sandbox. You can project your final grades and instantly see how many points each course contributes to your SGPA!',
+            pos: 'left'
+        });
+    } else {
+        const gpaBtn = document.getElementById('ff-gpa-planner-btn');
+        if (gpaBtn) {
+            steps.push({
+                el: gpaBtn,
+                title: 'GPA Planner',
+                text: 'Click here to open your interactive GPA sandbox. You can project your final grades and instantly see how many points each course contributes to your SGPA!',
+                pos: 'bottom'
+            });
+        }
+    }
+
+    // Step 4: Progress Bar
     const progCard = document.querySelector('.ff-progress-card');
     if (progCard) {
         steps.push({
@@ -1382,7 +1436,7 @@ window.ffRunTutorial = function() {
         });
     }
 
-    // Step 2: Target Grade Toggle
+    // Step 5: Target Grade Toggle
     const targetRow = document.querySelector('.ff-gpa-row');
     if (targetRow) {
         steps.push({
@@ -1393,7 +1447,7 @@ window.ffRunTutorial = function() {
         });
     }
 
-    // Step 3: Marks Card
+    // Step 6: Marks Card
     const catCard = document.querySelector('.ff-card');
     if (catCard) {
         steps.push({
@@ -1404,8 +1458,23 @@ window.ffRunTutorial = function() {
         });
     }
 
+    // Step 7: Extension Popup
+    const topbarControls = document.getElementById('ff-topbar-controls');
+    if (topbarControls) {
+        steps.push({
+            el: topbarControls,
+            title: 'The ReFlex Extension Menu',
+            text: 'Click the ReFlex icon in your browser toolbar to link your Google Account for live email alerts, toggle the UI, or replay this tutorial. If you love ReFlex, please star us on GitHub!',
+            pos: 'bottom'
+        });
+    }
+
     if (steps.length === 0) {
-        chrome.storage.local.set({ ff_tutorial_status: 'completed' });
+        try {
+            chrome.storage.local.set({ ff_tutorial_v2_status: 'completed' });
+        } catch (e) {
+            console.warn('ReFlex: Tutorial completion save skipped (Extension context invalidated).');
+        }
         overlay.remove();
         return;
     }
@@ -1457,6 +1526,40 @@ window.ffRunTutorial = function() {
     let activeOrigZ = '';
     let activeOrigPos = '';
 
+    const tutorialInterval = setInterval(() => {
+        if (!activeEl) return;
+        
+        // Dynamically hot-swap activeEl for GPA Planner if user toggles it during the tutorial
+        const currentTitle = steps[currentStep]?.title;
+        if (currentTitle === 'GPA Planner' || currentTitle === 'GPA Planner Dashboard') {
+            const isSidebarOpen = typeof _gpaSidebarOpen !== 'undefined' && _gpaSidebarOpen;
+            const targetId = isSidebarOpen ? 'ff-gpa-sidebar' : 'ff-gpa-planner-btn';
+            const expectedEl = document.getElementById(targetId);
+            
+            if (expectedEl && activeEl !== expectedEl) {
+                activeEl.style.zIndex = activeOrigZ;
+                activeEl.style.position = activeOrigPos;
+                
+                activeEl = expectedEl;
+                activeOrigZ = activeEl.style.zIndex;
+                activeOrigPos = activeEl.style.position;
+                
+                const compPos = window.getComputedStyle(activeEl).position;
+                if (compPos === 'static') activeEl.style.position = 'relative';
+                activeEl.style.zIndex = '100000';
+                
+                steps[currentStep].el = activeEl;
+                steps[currentStep].pos = isSidebarOpen ? 'left' : 'bottom';
+                steps[currentStep].title = isSidebarOpen ? 'GPA Planner Dashboard' : 'GPA Planner';
+                steps[currentStep].text = isSidebarOpen ? 'Here is your interactive GPA sandbox. You can project your final grades and instantly see how many points each course contributes to your SGPA!' : 'Click here to open your interactive GPA sandbox. You can project your final grades and instantly see how many points each course contributes to your SGPA!';
+                tooltipTitle.textContent = steps[currentStep].title;
+                tooltipText.textContent = steps[currentStep].text;
+            }
+        }
+        
+        positionTooltip(steps[currentStep]);
+    }, 50);
+
     function renderStep() {
         if (activeEl) {
             activeEl.style.zIndex = activeOrigZ;
@@ -1507,13 +1610,26 @@ window.ffRunTutorial = function() {
         if (step.pos === 'bottom') {
             top = rect.bottom + 15 + offsetY;
             if (top + (tooltipRect.height || 150) > window.innerHeight) top = rect.top - (tooltipRect.height || 150) - 15 - offsetY;
+        } else if (step.pos === 'left') {
+            top = rect.top + (rect.height / 2) - ((tooltipRect.height || 150) / 2);
+            left = rect.left - 340 - offsetY;
+            if (left < 20) left = rect.right + 15 + offsetY;
+        } else if (step.pos === 'right') {
+            top = rect.top + (rect.height / 2) - ((tooltipRect.height || 150) / 2);
+            left = rect.right + 15 + offsetY;
+            if (left + 320 > window.innerWidth) left = rect.left - 340 - offsetY;
         } else {
             top = rect.top - (tooltipRect.height || 150) - 15 - offsetY;
             if (top < 0) top = rect.bottom + 15 + offsetY;
         }
         
-        if (left + 320 > window.innerWidth) left = window.innerWidth - 340;
-        if (left < 20) left = 20;
+        if (step.pos === 'top' || step.pos === 'bottom') {
+            if (left + 320 > window.innerWidth) left = window.innerWidth - 340;
+            if (left < 20) left = 20;
+        } else {
+            if (top + (tooltipRect.height || 150) > window.innerHeight) top = window.innerHeight - (tooltipRect.height || 150) - 20;
+            if (top < 20) top = 20;
+        }
 
         tooltip.style.top = `${top + window.scrollY}px`;
         tooltip.style.left = `${left + window.scrollX}px`;
@@ -1525,6 +1641,7 @@ window.ffRunTutorial = function() {
     window.addEventListener('resize', resizeHandler);
 
     function cleanup() {
+        clearInterval(tutorialInterval);
         if (activeEl) {
             activeEl.style.zIndex = activeOrigZ;
             activeEl.style.position = activeOrigPos;
@@ -1537,7 +1654,11 @@ window.ffRunTutorial = function() {
             tooltip.remove();
             window.removeEventListener('resize', resizeHandler);
         }, 300);
-        chrome.storage.local.set({ ff_tutorial_status: 'completed' });
+        try {
+            chrome.storage.local.set({ ff_tutorial_v2_status: 'completed' });
+        } catch (e) {
+            console.warn('ReFlex: Tutorial completion save skipped (Extension context invalidated).');
+        }
     }
 
     nextBtn.onclick = () => {
@@ -1577,4 +1698,271 @@ window.ffRunTutorial = function() {
     } else {
         document.addEventListener('DOMContentLoaded', initReFlex);
     }
+// ══════════════════════════════════════════════════════════════════════════
+// 7. GPA PLANNER SIDEBAR
+// ══════════════════════════════════════════════════════════════════════════
+
+let _gpaSidebarOpen = false;
+let _gpaSelections = {};
+let _gpaCreditCache = {};
+let _gpaSaveTimer = null;
+const GPA_TIERS_PLANNER = [
+    { label: 'A+',  gpa: 4.00, pct: 90 },
+    { label: 'A',   gpa: 4.00, pct: 86 },
+    { label: 'A-',  gpa: 3.67, pct: 82 },
+    { label: 'B+',  gpa: 3.33, pct: 78 },
+    { label: 'B',   gpa: 3.00, pct: 74 },
+    { label: 'B-',  gpa: 2.67, pct: 70 },
+    { label: 'C+',  gpa: 2.33, pct: 66 },
+    { label: 'C',   gpa: 2.00, pct: 62 },
+    { label: 'C-',  gpa: 1.67, pct: 58 },
+    { label: 'D+',  gpa: 1.33, pct: 54 },
+    { label: 'D',   gpa: 1.00, pct: 50 },
+    { label: 'F',   gpa: 0.00, pct: 0  },
+];
+
+function debounceSaveSelections() {
+    clearTimeout(_gpaSaveTimer);
+    _gpaSaveTimer = setTimeout(() => {
+        try {
+            chrome.storage.local.set({ ff_gpa_planner_selections: _gpaSelections });
+        } catch(e) {}
+    }, 500);
+}
+
+window.ffToggleGpaPlanner = function(marksData) {
+    let sidebar = document.getElementById('ff-gpa-sidebar');
+    const root = document.getElementById('ff-root');
+    if (!root) return;
+
+    if (_gpaSidebarOpen && sidebar) {
+        sidebar.style.transform = 'translateX(100%)';
+        setTimeout(() => sidebar.remove(), 300);
+        _gpaSidebarOpen = false;
+        return;
+    }
+    
+    // SPAM LOCK: Prevent multiple sidebars if clicked during animation/async load
+    if (sidebar) return;
+    
+    // Create drawer
+    sidebar = document.createElement('div');
+    sidebar.id = 'ff-gpa-sidebar';
+    sidebar.className = 'ff-gpa-sidebar';
+    sidebar.style.transform = 'translateX(100%)';
+    root.appendChild(sidebar);
+    
+    // Read async data
+    chrome.storage.local.get(['ff_credit_cache', 'ff_gpa_planner_selections'], (res) => {
+        _gpaCreditCache = res.ff_credit_cache || {};
+        _gpaSelections = res.ff_gpa_planner_selections || {};
+        
+        // Clean ghost data (selections for courses not in marksData)
+        const currentCodes = new Set();
+        marksData.forEach(c => {
+            const m = c.courseName.match(/^([A-Z]{2,4}\d{4})/i);
+            if (m) currentCodes.add(m[1].toUpperCase());
+        });
+        Object.keys(_gpaSelections).forEach(k => {
+            if (!currentCodes.has(k)) delete _gpaSelections[k];
+        });
+        debounceSaveSelections();
+
+        renderGpaPlannerUI(marksData, sidebar);
+        
+        // Slide in
+        setTimeout(() => {
+            sidebar.style.transform = 'translateX(0)';
+            _gpaSidebarOpen = true;
+        }, 10);
+    });
+};
+
+function renderGpaPlannerUI(marksData, sidebar) {
+    if (Object.keys(_gpaCreditCache).length === 0) {
+        sidebar.innerHTML = `
+            <div class="ff-gpa-header">
+                <h3>GPA Planner</h3>
+                <span class="ff-gpa-close" onclick="document.getElementById('ff-gpa-sidebar').style.transform='translateX(100%)'; setTimeout(()=>document.getElementById('ff-gpa-sidebar').remove(),300); window._gpaSidebarOpen=false;">&times;</span>
+            </div>
+            <div class="ff-gpa-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <p style="font-weight: 600; margin-top: 16px;">Credit-hour data unavailable.</p>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">Visit the <b>Transcript</b> page once to load credit hours and enable the GPA Planner.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <div class="ff-gpa-header">
+            <h3>GPA Planner</h3>
+            <span class="ff-gpa-close" id="ff-gpa-close-btn">&times;</span>
+        </div>
+        <div class="ff-gpa-hero">
+            <span id="ff-gpa-reset-btn" class="ff-gpa-reset" title="Reset all to Current">↺</span>
+            <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Projected Semester GPA</div>
+            <div id="ff-gpa-hero-value" class="ff-gpa-hero-value">0.00</div>
+        </div>
+        <div class="ff-gpa-list">
+    `;
+
+    const coursesData = [];
+
+    marksData.forEach(course => {
+        const codeMatch = course.courseName.match(/^([A-Z]{2,4}\d{4})/i);
+        if (!codeMatch) return;
+        const code = codeMatch[1].toUpperCase();
+        const displayName = course.courseName.replace(/^[A-Z]{2,4}\d{4}-?\s*/i, '').replace(/\s*\(.*\)$/, '').trim();
+        const cr = _gpaCreditCache[code];
+
+        if (!cr || cr <= 0) {
+            html += `
+                <div class="ff-planner-row ff-gpa-excluded">
+                    <div class="ff-planner-row-info">
+                        <strong>${esc(code)}</strong> - ${esc(displayName)}
+                        <div class="ff-planner-row-meta"><span style="color:#eab308;font-weight:700;">!</span> Excluded (No Credit Info)</div>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        let totalObtained = 0, totalWeight = 0, gradedWeight = 0;
+        course.categories.forEach(cat => {
+            cat.items.forEach(item => {
+                if (item.obtained !== null && item.obtained !== undefined) {
+                    const contrib = (item.weight > 0 && item.total > 0) ? (item.obtained / item.total) * item.weight : 0;
+                    totalObtained += contrib;
+                    totalWeight += item.weight;
+                    if (item.weight > 0 && item.total > 0) gradedWeight += item.weight;
+                }
+            });
+        });
+        
+        const currentPct = totalWeight > 0 ? (totalObtained / totalWeight * 100) : 0;
+        const currentTier = pctToGrade(currentPct);
+        const ungradedWeight = Math.max(0, 100 - gradedWeight);
+
+        let selectedGpa = _gpaSelections[code];
+        if (selectedGpa === undefined) selectedGpa = currentTier.gpa;
+        
+        coursesData.push({ code, cr, currentPct, ungradedWeight, selectedGpa, currentTier });
+
+        const isLocked = ungradedWeight <= 0.01;
+        if (isLocked) {
+            // Force selected GPA to exactly what was achieved since no weight remains
+            selectedGpa = currentTier.gpa;
+            const cObj = coursesData.find(c => c.code === code);
+            if (cObj) cObj.selectedGpa = selectedGpa;
+        }
+
+        html += `
+            <div class="ff-planner-row">
+                <div class="ff-planner-row-info">
+                    <strong>${esc(code)}</strong> - ${esc(displayName)}
+                    <div class="ff-planner-row-meta" id="ff-planner-meta-${esc(code)}"></div>
+                </div>
+                <div class="ff-planner-row-action">
+                    <select class="ff-gpa-select" data-code="${esc(code)}" ${isLocked ? 'disabled' : ''}>
+        `;
+
+        const maxPossibleAbsolutePct = totalObtained + ungradedWeight;
+        const uniqueTiers = Array.from(new Set(GPA_TIERS_PLANNER.map(t => t.gpa)))
+            .map(gpa => GPA_TIERS_PLANNER.find(t => t.gpa === gpa))
+            .filter(t => t.gpa >= 1.0);
+
+        uniqueTiers.sort((a,b) => b.gpa - a.gpa).forEach(t => {
+            const isPossible = maxPossibleAbsolutePct >= t.pct || t.gpa <= currentTier.gpa;
+            const labelText = `${t.label} (${t.gpa.toFixed(2)})`;
+            if (isPossible || t.gpa === currentTier.gpa) {
+                html += `<option value="${t.gpa}" ${selectedGpa === t.gpa ? 'selected' : ''}>${labelText}</option>`;
+            } else {
+                html += `<option value="${t.gpa}" disabled>${labelText} (x)</option>`;
+            }
+        });
+
+        html += `
+                    </select>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+    sidebar.innerHTML = html;
+
+    sidebar.querySelector('#ff-gpa-close-btn').addEventListener('click', () => {
+        sidebar.style.transform = 'translateX(100%)';
+        setTimeout(() => sidebar.remove(), 300);
+        _gpaSidebarOpen = false;
+    });
+
+    const selects = sidebar.querySelectorAll('.ff-gpa-select');
+    selects.forEach(sel => {
+        sel.addEventListener('change', (e) => {
+            const code = e.target.dataset.code;
+            const val = parseFloat(e.target.value);
+            _gpaSelections[code] = val;
+            debounceSaveSelections();
+            
+            const cObj = coursesData.find(c => c.code === code);
+            if (cObj) cObj.selectedGpa = val;
+            
+            recalculateSemesterGpa(coursesData, sidebar);
+        });
+    });
+
+    const resetBtn = sidebar.querySelector('#ff-gpa-reset-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (window.confirm("Are you sure you want to revert all projections back to their initial state?")) {
+                _gpaSelections = {};
+                debounceSaveSelections();
+                
+                coursesData.forEach(c => {
+                    c.selectedGpa = c.currentTier.gpa;
+                    const sel = sidebar.querySelector(`.ff-gpa-select[data-code="${esc(c.code)}"]`);
+                    if (sel && !sel.disabled) {
+                        sel.value = c.currentTier.gpa;
+                    }
+                });
+                recalculateSemesterGpa(coursesData, sidebar);
+            }
+        });
+    }
+
+    recalculateSemesterGpa(coursesData, sidebar);
+}
+
+function recalculateSemesterGpa(coursesData, sidebar) {
+    let sumPts = 0;
+    let sumCr = 0;
+    coursesData.forEach(c => {
+        sumPts += c.selectedGpa * c.cr;
+        sumCr += c.cr;
+    });
+
+    const semGpa = sumCr > 0 ? (sumPts / sumCr) : 0;
+    
+    coursesData.forEach(c => {
+        const metaDiv = sidebar.querySelector(`#ff-planner-meta-${esc(c.code)}`);
+        if (metaDiv && sumCr > 0) {
+            const contrib = ((c.selectedGpa * c.cr) / sumCr).toFixed(3);
+            metaDiv.innerHTML = `<span class="ff-tr-code">${c.cr} Cr</span> <span class="ff-tr-sep">|</span> <span class="ff-tr-contrib">Contributes ${contrib} pts to SGPA</span>`;
+        }
+    });
+
+    const hero = sidebar.querySelector('#ff-gpa-hero-value');
+    if (hero) {
+        hero.textContent = semGpa.toFixed(2);
+        
+        let color = 'var(--text-color)';
+        if (semGpa >= 3.67) color = '#10b981';
+        else if (semGpa >= 3.0) color = '#3b82f6';
+        else if (semGpa >= 2.0) color = '#eab308';
+        else color = '#ef4444';
+        
+        hero.style.color = color;
+    }
+}
 })();

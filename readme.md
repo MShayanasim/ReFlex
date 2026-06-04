@@ -30,18 +30,20 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 ### ✨ Full Feature List
 
 #### 🎨 Design & UX
-- **Premium Dark & Light Modes** — Choose between deep navy glassmorphic backgrounds or a crisp, modern light mode. Your preference is saved automatically and can be toggled instantly with the sun/moon button in the top bar.
+- **Premium Dark & Light Modes** — Choose between deep navy glassmorphic backgrounds or a crisp, modern light mode. This even applies to the usually glaring native login screen! Your preference is saved automatically and can be toggled instantly with the sun/moon button in the top bar.
 - **Zero-Flash Veil Technology** — ReFlex drops an invisible veil over the native UI the millisecond the page begins loading. You will never see the ugly original tables — only the finished ReFlex dashboard.
 - **Compact Tab Navigation** — The Marks page replaces stacked course tables with a sleek horizontal tab bar. Switch between all your courses in a single click. No scrolling. No hunting.
 - **Animated Progress Bars** — A gradient bar tracks your current weighted percentage relative to the class average, with distinct markers for both.
 
 #### 📊 Marks Dashboard
 - **Recent Updates Drawer** — A slide-out drawer aggregates all new or updated marks across all your courses in one place. Clicking an update automatically switches to that course tab and scrolls to the exact highlighted row.
-- **Per-Course GPA Projection Engine** — Select any target grade (C through A) from a dropdown. ReFlex instantly calculates the exact percentage you need to score across your remaining coursework to reach that grade. If it's mathematically impossible, it tells you clearly.
+- **Live Sync Engine ("Ghost Sync")** — A dedicated Sync button on the Marks page silently fetches your latest marks from the server in an invisible background frame and hot-swaps the UI without ever reloading the page. It even automatically runs in the background every few minutes to keep you instantly up to date.
+- **Interactive First-Time Tutorial** — When you first open the Marks page, an elegant, interactive overlay tutorial highlights and explains all the new features, complete with a replay button in the extension popup.
+- **Per-Course GPA Projection Engine** — Select any target grade (C through A) from a dropdown. ReFlex instantly calculates the exact percentage you need to score across your remaining coursework to reach that grade. It clearly displays how many points each course contributes to your SGPA, and automatically locks courses whose grading is mathematically complete.
 - **Current Grade & GPA Badge** — Your live grade and GPA points are displayed prominently with a colour-coded badge (emerald for A, indigo for B, amber for C, and so on).
-- **NEW & UPDATED Ghost Tracking** — ReFlex saves a local snapshot of your marks. When a teacher uploads a new quiz or edits a previous score, the changed row is instantly tagged with a bright `NEW` or `UPD` badge. You always know exactly what changed since your last visit.
+- **NEW & UPDATED Tracking** — ReFlex saves a local snapshot of your marks. When a teacher uploads a new quiz or edits a previous score, the changed row is instantly tagged with a bright `NEW` or `UPD` badge. You always know exactly what changed since your last visit.
 - **Below-Average Warning** — Every assessment that you scored below the class average is automatically flagged with a `!` warning indicator, so you know precisely where you lost ground.
-- **Class Average Analytics** — Every single assessment row shows the class average right alongside your score for instant comparison.
+- **Class Average Analytics** — Every single assessment row shows the class average right alongside your score for instant comparison. You can click on the scores in the Grand Final Marks card to instantly toggle between raw Marks and Weightage percentages.
 - **Minimum & Maximum Marks** — Know the highest and lowest scores in the class for every assessment with a subtle purple `Min X | Max Y` pill badge.
 - **Graded vs. Remaining Breakdown** — A clear stats row always shows how much of your grade has been evaluated and how much of the final percentage is still unplayed.
 
@@ -57,7 +59,8 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 - **Global Credit-Hour Cache** — ReFlex reads your transcript data and stores credit-hour information locally, which it then uses to power accurate GPA calculations and attendance heuristics across the portal.
 
 #### 🧭 Navigation & Global Controls
-- **Automated Email Notifications** — The crown jewel of ReFlex. When enabled, ReFlex silently monitors your portal in the background every 30 minutes. If a teacher uploads a new mark or changes an existing one, you immediately receive a beautifully formatted email alert directly to your Google inbox! No more obsessively refreshing the portal during finals week.
+- **Automated Email Notifications** — The crown jewel of ReFlex. When enabled, ReFlex silently monitors your portal in the background. If a teacher uploads a new mark or changes an existing one, you immediately receive a beautifully formatted email alert directly to your Google inbox! No more obsessively refreshing the portal during finals week. *(Note: This feature requires you to link your Google account and keep your Flex session logged in).*
+- **Persistent Keep-Alive Heartbeat** — Fed up with session timeouts? ReFlex runs a silent background heartbeat to ensure your Flex session stays logged in continuously until you close your browser or your PC goes to sleep.
 - **Live Sidebar Pointer** — A sharp active-page indicator follows your navigation across every section of the portal — Home, Attendance, Marks, Transcript, Course Registration, Fee Details, and more — without a page reload.
 - **One-Click Native Toggle** — A minimal, premium toggle switch lives permanently in the portal's top navigation bar, right next to your profile. Flip it once to instantly reveal the original native Flex UI. Flip it back to restore ReFlex. No refresh required.
 - **SPA-Aware Navigation** — ReFlex fully respects the portal's single-page navigation. It watches for URL changes, tears down cleanly, and re-injects the right UI for every page you land on.

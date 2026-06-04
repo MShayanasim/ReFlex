@@ -1,6 +1,6 @@
 # ReFlex — Privacy Policy
 
-**Last updated:** June 1, 2026
+**Last updated:** June 4, 2026
 
 ## Overview
 
@@ -22,7 +22,7 @@ ReFlex reads content from the FAST-NUCES Flex portal pages (`*.nu.edu.pk`) to re
 To power the Automated Background Email Notifications feature, ReFlex requests access to your authenticated Google Account email address via the Chrome Identity API (`chrome.identity`).
 
 **How it is protected:** 
-- The extension only requests your email address. It never sees or has access to your Google password.
+- The extension only requests your email address. It never sees or has access to your Google password. Your OAuth access token is securely generated via a standard Web Authentication Flow and explicitly stored only in Chrome's local storage (`chrome.storage.local`).
 - When a grade update is detected in the background, your email address and a brief text summary of the grade change are sent securely to our serverless Cloudflare Worker (`reflex-notifier`).
 - The Cloudflare Worker uses this data strictly to dispatch an email alert to you via an SMTP provider (Brevo).
 - The Cloudflare Worker operates completely statelessly. **Your email address and grade updates are never logged, saved, or stored in any database on our servers.** They exist in memory just long enough to send the email, and are immediately destroyed.
@@ -37,6 +37,7 @@ ReFlex uses Chrome's built-in extension storage to persist:
 | UI toggle state | Remembers whether ReFlex UI is on or off | `sync` |
 | Email notifications state | Remembers if notifications are enabled/disabled | `sync` |
 | Marks snapshot | A local cache of your marks, used to detect NEW/UPDATED grades and trigger email alerts | `local` |
+| GPA Planner projections | Saves your target grades locally so you do not lose your sandbox values | `local` |
 
 All stored data can be cleared at any time by uninstalling the extension.
 
@@ -49,6 +50,7 @@ All stored data can be cleared at any time by uninstalling the extension.
 | `alarms` | Allows the extension to wake up periodically in the background to check for new grades. |
 | `offscreen` | Required by Manifest V3 to parse the Flex portal HTML in the background without opening visible tabs. |
 | `storage` | Required to save your theme preference, settings, and local marks snapshot. |
+| `activeTab` | Allows the extension to interact with the currently active portal tab without requiring broad history permissions. |
 | `host_permissions` | Scoped exclusively to `*://*.nu.edu.pk/*` to inject the UI securely on university pages and fetch grade updates. |
 
 ## Third-Party Services

@@ -76,16 +76,20 @@ function checkTablesReady(url) {
 
     // Use textContent (not innerText) — works before layout is computed.
     // Scan ALL rows, not just first-child, in case the header isn't row 1.
-    function allCellText(table) {
-        return Array.from(table.querySelectorAll('th, td'))
-            .map(c => c.textContent.trim().toLowerCase());
-    }
-
+    // Optimization: Short-circuit loop instead of mapping all cells to a new array
     if (url.includes('marks')) {
         for (const t of tables) {
-            const cells = allCellText(t);
-            if (cells.includes('weightage') && cells.some(h => h.includes('obtained'))) {
-                if (t.querySelectorAll('tbody tr, .m-datatable__row').length > 1 || t.querySelectorAll('td').length > 5) {
+            const cells = Array.from(t.querySelectorAll('th, td'));
+            let hasWeightage = false;
+            let hasObtained = false;
+            for (const c of cells) {
+                const text = c.textContent.trim().toLowerCase();
+                if (text === 'weightage') hasWeightage = true;
+                if (text.includes('obtained')) hasObtained = true;
+                if (hasWeightage && hasObtained) break;
+            }
+            if (hasWeightage && hasObtained) {
+                if (t.querySelectorAll('tbody tr, .m-datatable__row').length > 1 || cells.length > 5) {
                     return true;
                 }
             }
@@ -94,9 +98,17 @@ function checkTablesReady(url) {
 
     if (url.includes('transcript')) {
         for (const t of tables) {
-            const cells = allCellText(t);
-            if (cells.includes('code') && cells.some(h => h.includes('course'))) {
-                if (t.querySelectorAll('tbody tr, .m-datatable__row').length > 1 || t.querySelectorAll('td').length > 5) {
+            const cells = Array.from(t.querySelectorAll('th, td'));
+            let hasCode = false;
+            let hasCourse = false;
+            for (const c of cells) {
+                const text = c.textContent.trim().toLowerCase();
+                if (text === 'code') hasCode = true;
+                if (text.includes('course')) hasCourse = true;
+                if (hasCode && hasCourse) break;
+            }
+            if (hasCode && hasCourse) {
+                if (t.querySelectorAll('tbody tr, .m-datatable__row').length > 1 || cells.length > 5) {
                     return true;
                 }
             }
@@ -105,8 +117,10 @@ function checkTablesReady(url) {
 
     if (url.includes('attendance')) {
         for (const t of tables) {
-            const cells = allCellText(t);
-            if (cells.some(h => h.includes('presence'))) return true;
+            const cells = t.querySelectorAll('th, td');
+            for (const c of cells) {
+                if (c.textContent.toLowerCase().includes('presence')) return true;
+            }
         }
     }
 
@@ -265,7 +279,8 @@ function tearDown() {
         el.style.display = '';
         delete el.dataset.ffHidden;
     });
-    // Clean up attendance overlays
+    // Clean up overlays and event listeners
+    window.ffTearDownMarks && window.ffTearDownMarks();
     window.ffTearDownAttendance && window.ffTearDownAttendance();
 }
 
