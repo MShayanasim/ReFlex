@@ -11,3 +11,7 @@ compatibility_date = "2024-05-31"
 #
 # wrangler secret put RESEND_API_KEY
 # (When prompted, paste your Resend API key: re_PkxxFbxt_...)
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_STORE"
+id = "a186198e74b14687be49a4a8cfb3f0ce"

@@ -45,7 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
             `?client_id=${encodeURIComponent(OAUTH_CLIENT_ID)}` +
             `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-            `&response_type=token` +
+            `&response_type=code` +
+            `&access_type=offline` +
+            `&prompt=consent` +
             `&scope=${encodeURIComponent('https://www.googleapis.com/auth/userinfo.email')}`;
         
         chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (redirectUrl) => {
@@ -63,11 +65,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                // Parse the access token from the redirect URL fragment
-                const params = new URLSearchParams(new URL(redirectUrl).hash.substring(1));
-                const accessToken = params.get('access_token');
-                const expiresIn = parseInt(params.get('expires_in'), 10);
-                if (!accessToken) throw new Error("No access token returned");
+                // Parse the authorization code from the redirect URL query parameters
+                const params = new URL(redirectUrl).searchParams;
+                const code = params.get('code');
+                if (!code) throw new Error("No authorization code returned");
+
+                // Exchange the code for tokens via Cloudflare Worker
+                const tokenResponse = await fetch('https://reflex-notifier.shayanasim-dev.workers.dev/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_id: OAUTH_CLIENT_ID,
+                        redirect_uri: redirectUri,
+                        code: code
+                    })
+                });
+
+                if (!tokenResponse.ok) {
+                    const errTxt = await tokenResponse.text();
+                    throw new Error("Worker token exchange failed: " + errTxt);
+                }
+
+                const tokenData = await tokenResponse.json();
+                const accessToken = tokenData.access_token;
+                const refreshToken = tokenData.refresh_token;
+                const expiresIn = tokenData.expires_in || 3599;
+
+                if (!accessToken) throw new Error("No access token returned from worker");
 
                 // Fetch the user's email using the access token
                 const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -78,12 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userEmail = userInfo.email;
                 if (!userEmail) throw new Error("Email not found");
                 
-                // Store token + expiry so the background script can send emails
+                // Store token + expiry + refresh token so the background script can stay logged in
                 chrome.storage.local.set({
                     isLoggedIn: true,
                     userEmail: userEmail,
                     authToken: accessToken,
-                    tokenExpiry: Date.now() + (expiresIn * 1000)
+                    tokenExpiry: Date.now() + (expiresIn * 1000),
+                    refreshToken: refreshToken
                 }, () => {
                     loginBtn.textContent = `✓ Logged in as: ${userEmail}`;
                     loginBtn.style.backgroundColor = 'var(--success-color)';
@@ -106,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch(`https://accounts.google.com/o/oauth2/revoke?token=${result.authToken}`)
                     .catch((e) => console.warn("ReFlex: Token revocation failed.", e));
             }
-            chrome.storage.local.remove(['userEmail', 'isLoggedIn', 'authToken', 'tokenExpiry', 'pending_email_queue', 'email_queue_start_time'], () => {
+            chrome.storage.local.remove(['userEmail', 'isLoggedIn', 'authToken', 'tokenExpiry', 'refreshToken', 'pending_email_queue', 'email_queue_start_time'], () => {
                 updateLoginUI(null);
             });
         });

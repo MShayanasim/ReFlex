@@ -1,8 +1,3 @@
-// Global state for simple in-memory rate limiting across worker invocations
-const rateLimitMap = new Map();
-let lastCleanup = Date.now();
-
-
 export default {
   async fetch(request, env, ctx) {
     const requestOrigin = request.headers.get("Origin");
@@ -33,13 +28,23 @@ export default {
     try {
       const data = await request.json();
 
-      // OAuth Exchange Endpoint
+      const ip = request.headers.get("cf-connecting-ip") || "unknown-ip";
+
+      // OAuth Token Exchange Endpoint (Initial Login)
       if (url.pathname === '/api/auth') {
         const { code, redirect_uri, client_id } = data;
-        
         if (!code || !redirect_uri || !client_id) {
           return new Response(JSON.stringify({ error: "Missing auth parameters" }), { status: 400, headers: corsHeaders });
         }
+
+        // Rate limit: Max 10 auth requests per IP per hour
+        const authRateKey = `auth_${ip}`;
+        const authCountStr = await env.RATE_LIMIT_STORE.get(authRateKey);
+        const authCount = parseInt(authCountStr || "0", 10);
+        if (authCount >= 10) {
+          return new Response(JSON.stringify({ error: "Too many auth requests from this IP" }), { status: 429, headers: corsHeaders });
+        }
+        ctx.waitUntil(env.RATE_LIMIT_STORE.put(authRateKey, (authCount + 1).toString(), { expirationTtl: 3600 }));
 
         if (!env.GOOGLE_CLIENT_SECRET) {
            return new Response(JSON.stringify({ error: "Server missing Google Client Secret" }), { status: 500, headers: corsHeaders });
@@ -50,7 +55,7 @@ export default {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
             client_id: client_id,
-            client_secret: env.GOOGLE_CLIENT_SECRET, // Secret securely stored!
+            client_secret: env.GOOGLE_CLIENT_SECRET,
             code: code,
             grant_type: "authorization_code",
             redirect_uri: redirect_uri
@@ -58,17 +63,47 @@ export default {
         });
 
         const tokenData = await tokenResponse.json();
-        
-        if (!tokenResponse.ok) {
-           return new Response(JSON.stringify({ error: "Failed to exchange token", details: tokenData }), {
-             status: tokenResponse.status,
-             headers: { "Content-Type": "application/json", ...corsHeaders }
-           });
+        return new Response(JSON.stringify(tokenData), {
+          status: tokenResponse.ok ? 200 : tokenResponse.status,
+          headers: corsHeaders
+        });
+      }
+
+      // OAuth Token Refresh Endpoint (Silent Refresh)
+      if (url.pathname === '/api/refresh') {
+        const { refresh_token, client_id } = data;
+        if (!refresh_token || !client_id) {
+          return new Response(JSON.stringify({ error: "Missing refresh parameters" }), { status: 400, headers: corsHeaders });
         }
 
+        // Rate limit: Max 30 refresh requests per IP per hour
+        const refreshRateKey = `refresh_${ip}`;
+        const refreshCountStr = await env.RATE_LIMIT_STORE.get(refreshRateKey);
+        const refreshCount = parseInt(refreshCountStr || "0", 10);
+        if (refreshCount >= 30) {
+          return new Response(JSON.stringify({ error: "Too many refresh requests from this IP" }), { status: 429, headers: corsHeaders });
+        }
+        ctx.waitUntil(env.RATE_LIMIT_STORE.put(refreshRateKey, (refreshCount + 1).toString(), { expirationTtl: 3600 }));
+
+        if (!env.GOOGLE_CLIENT_SECRET) {
+           return new Response(JSON.stringify({ error: "Server missing Google Client Secret" }), { status: 500, headers: corsHeaders });
+        }
+
+        const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: client_id,
+            client_secret: env.GOOGLE_CLIENT_SECRET,
+            refresh_token: refresh_token,
+            grant_type: "refresh_token"
+          })
+        });
+
+        const tokenData = await tokenResponse.json();
         return new Response(JSON.stringify(tokenData), {
-          status: 200,
-          headers: { "Content-Type": "application/json", ...corsHeaders }
+          status: tokenResponse.ok ? 200 : tokenResponse.status,
+          headers: corsHeaders
         });
       }
 
@@ -98,37 +133,38 @@ export default {
       }).join('<br>');
 
       // CRITICAL SECURITY FIX 2: Rate Limiting
-      // Protect your Brevo quota from malicious draining (where an attacker spams their own email)
-      const ip = request.headers.get("cf-connecting-ip") || "unknown-ip";
-      const rateLimitKey = `${userEmail}-${ip}`;
+      // Protect your Brevo quota from malicious draining using Cloudflare KV
       const now = Date.now();
+      const dateStr = new Date(now).toISOString().split('T')[0];
+      const dailyKey = `daily_${dateStr}`;
       
-      // Lazy cleanup of the map every 10 minutes
-      if (now - lastCleanup > 600000) {
-        for (const [key, timestamp] of rateLimitMap.entries()) {
-          if (now - timestamp > 600000) {
-            rateLimitMap.delete(key);
-          }
-        }
-        lastCleanup = now;
+      // Execute KV reads in parallel
+      const [emailLimit, ipLimit, dailyCountStr] = await Promise.all([
+        env.RATE_LIMIT_STORE.get(`email_${userEmail}`),
+        env.RATE_LIMIT_STORE.get(`ip_${ip}`),
+        env.RATE_LIMIT_STORE.get(dailyKey)
+      ]);
+
+      const dailyCount = parseInt(dailyCountStr || "0", 10);
+      if (dailyCount >= 900) {
+        return new Response(JSON.stringify({ error: "Global daily email limit reached to protect quotas. Try again tomorrow." }), { status: 429, headers: corsHeaders });
       }
 
-      // Cap size to prevent OOM
-      if (rateLimitMap.size > 10000) {
-        let i = 0;
-        for (const key of rateLimitMap.keys()) {
-          rateLimitMap.delete(key);
-          if (++i > 2000) break; // Remove oldest 2000
-        }
+      if (emailLimit) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded for this email. Please wait 60 seconds." }), { status: 429, headers: corsHeaders });
+      }
+      
+      const ipCount = parseInt(ipLimit || "0", 10);
+      if (ipCount >= 5) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded for this IP. Please wait 1 minute." }), { status: 429, headers: corsHeaders });
       }
 
-      const lastRequestTime = rateLimitMap.get(rateLimitKey);
-      
-      // Limit to 1 email every 60 seconds per User/IP combination
-      if (lastRequestTime && (now - lastRequestTime < 60000)) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please wait 60 seconds." }), { status: 429, headers: corsHeaders });
-      }
-      rateLimitMap.set(rateLimitKey, now);
+      // Write to KV immediately to prevent concurrent requests bypassing the check
+      ctx.waitUntil(Promise.all([
+         env.RATE_LIMIT_STORE.put(dailyKey, (dailyCount + 1).toString(), { expirationTtl: 86400 }),
+         env.RATE_LIMIT_STORE.put(`email_${userEmail}`, "1", { expirationTtl: 60 }),
+         env.RATE_LIMIT_STORE.put(`ip_${ip}`, (ipCount + 1).toString(), { expirationTtl: 60 })
+      ]));
 
       // Verify the token with Google
       const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${token}`);

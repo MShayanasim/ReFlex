@@ -12,7 +12,7 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 function setupAlarm() {
-    chrome.alarms.create("gradeCheck", { periodInMinutes: 15 });
+    chrome.alarms.create('gradeCheck', { periodInMinutes: 15 });
 }
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -158,47 +158,54 @@ function processEmailQueue() {
 const OAUTH_CLIENT_ID = '650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com';
 
 function getValidToken(callback) {
-    chrome.storage.local.get(['authToken', 'tokenExpiry'], (res) => {
+    chrome.storage.local.get(['authToken', 'tokenExpiry', 'refreshToken'], (res) => {
         // If token exists and hasn't expired (with 5 min buffer)
         if (res.authToken && res.tokenExpiry && Date.now() < res.tokenExpiry - 300000) {
             callback(res.authToken);
             return;
         }
         
-        // Token expired or missing — attempt a silent refresh
-        const redirectUri = `https://${chrome.runtime.id}.chromiumapp.org/`;
-        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
-            `?client_id=${encodeURIComponent(OAUTH_CLIENT_ID)}` +
-            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-            `&response_type=token` +
-            `&scope=${encodeURIComponent('https://www.googleapis.com/auth/userinfo.email')}` +
-            `&prompt=none`;
-        
-        chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: false }, (redirectUrl) => {
-            if (chrome.runtime.lastError || !redirectUrl) {
-                console.error("ReFlex Background: Silent token refresh failed.", chrome.runtime.lastError);
+        // Token expired. Check if we have a refresh token.
+        if (!res.refreshToken) {
+            console.error("ReFlex Background: No refresh token available. User must log in again.");
+            callback(null);
+            return;
+        }
+
+        // Use the refresh token to get a new access token via the Worker
+        fetch('https://reflex-notifier.shayanasim-dev.workers.dev/api/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: OAUTH_CLIENT_ID,
+                refresh_token: res.refreshToken
+            })
+        })
+        .then(async tokenResponse => {
+            if (!tokenResponse.ok) {
+                const errTxt = await tokenResponse.text();
+                console.error("ReFlex Background: Silent token refresh failed on worker.", errTxt);
                 callback(null);
                 return;
             }
-            
-            try {
-                const params = new URLSearchParams(new URL(redirectUrl).hash.substring(1));
-                const accessToken = params.get('access_token');
-                const expiresIn = parseInt(params.get('expires_in'), 10);
-                
-                if (accessToken) {
-                    chrome.storage.local.set({
-                        authToken: accessToken,
-                        tokenExpiry: Date.now() + (expiresIn * 1000)
-                    });
-                    callback(accessToken);
-                } else {
-                    callback(null);
-                }
-            } catch (e) {
-                console.error("ReFlex Background: Token parse error.", e);
+            const tokenData = await tokenResponse.json();
+            const newAccessToken = tokenData.access_token;
+            const expiresIn = tokenData.expires_in || 3599;
+
+            if (newAccessToken) {
+                chrome.storage.local.set({
+                    authToken: newAccessToken,
+                    tokenExpiry: Date.now() + (expiresIn * 1000)
+                }, () => {
+                    callback(newAccessToken);
+                });
+            } else {
                 callback(null);
             }
+        })
+        .catch(err => {
+            console.error("ReFlex Background: Error during silent refresh:", err);
+            callback(null);
         });
     });
 }
@@ -207,6 +214,12 @@ function sendEmailSecurely(userEmail, messageStr) {
     getValidToken((token) => {
         if (!token) {
             console.error("ReFlex Background: Could not get auth token for email. User might be logged out.");
+            chrome.notifications.create({
+                type: 'basic',
+                iconUrl: 'reflex-icon-128.png',
+                title: 'ReFlex Email Alert',
+                message: 'Failed to send email: Your Google session expired. Please open the ReFlex popup to log in again.'
+            });
             return;
         }
         
@@ -219,7 +232,14 @@ function sendEmailSecurely(userEmail, messageStr) {
             body: JSON.stringify({ email: userEmail, message: messageStr })
         }).then(async r => {
             if (!r.ok) {
-                console.error("ReFlex Background: Email Failed!", await r.text());
+                const errText = await r.text();
+                console.error("ReFlex Background: Email Failed!", errText);
+                chrome.notifications.create({
+                    type: 'basic',
+                    iconUrl: 'reflex-icon-128.png',
+                    title: 'ReFlex Email Failed',
+                    message: 'Server error: ' + errText
+                });
             } else {
                 console.log("ReFlex Background: Email Sent successfully!");
                 // Clear the queue ONLY after successful delivery!
