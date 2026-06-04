@@ -136,7 +136,9 @@ function startGuardWatcher(url) {
     if (guardObserver) guardObserver.disconnect();
 
     guardObserver = new MutationObserver(() => {
+        guardObserver.takeRecords(); // Prevent mutation queue memory bloat
         const root = document.getElementById('ff-root');
+
         if (!root) {
             // Our UI was wiped — re-inject after a short settle
             clearTimeout(debounceTimer);
@@ -148,13 +150,15 @@ function startGuardWatcher(url) {
         }
     });
 
-    const rootNode = document.getElementById('ff-root');
-    const guardTarget = rootNode ? rootNode.parentElement : document.body; 
+    // We MUST observe document.body with subtree: true because Angular can 
+    // completely destroy and recreate the parent containers during internal 
+    // re-renders (without URL changes). The callback is highly optimized 
+    // (O(1) getElementById check) so it will not cause performance drops.
+    const guardTarget = document.body; 
     
-    // If we have the exact parent, we don't need expensive subtree tracking!
     guardObserver.observe(guardTarget, { 
         childList: true, 
-        subtree: guardTarget === document.body 
+        subtree: true 
     });
 }
 
@@ -255,6 +259,7 @@ function tearDown() {
     if (window.ffTopbarRetry) { clearInterval(window.ffTopbarRetry); window.ffTopbarRetry = null; }
     if (scanObserver)  { scanObserver.disconnect();  scanObserver  = null; }
     if (guardObserver) { guardObserver.disconnect(); guardObserver = null; }
+    if (window.ffRecaptchaObserver) { window.ffRecaptchaObserver.disconnect(); window.ffRecaptchaObserver = null; }
     document.getElementById('ff-root')?.remove();
     document.querySelectorAll('[data-ff-hidden]').forEach(el => {
         el.style.display = '';
@@ -268,315 +273,30 @@ function watchNavigation() {
     window.addEventListener('popstate',   handleNavChange);
     window.addEventListener('hashchange', handleNavChange);
 
-    const _push    = history.pushState.bind(history);
-    const _replace = history.replaceState.bind(history);
-    history.pushState    = (...a) => { _push(...a);    handleNavChange(); };
-    history.replaceState = (...a) => { _replace(...a); handleNavChange(); };
+    if (!window._ffOriginalPushState) {
+        window._ffOriginalPushState = history.pushState.bind(history);
+        window._ffOriginalReplaceState = history.replaceState.bind(history);
+        history.pushState    = (...a) => { window._ffOriginalPushState(...a);    handleNavChange(); };
+        history.replaceState = (...a) => { window._ffOriginalReplaceState(...a); handleNavChange(); };
+    }
 
     // Handle the page we're already on
     handleNavChange();
 }
 
 // ── Change Detection ──────────────────────────────────────────────────────
-// Storage strategy (split):
-//   • ff_snap_* (bulky per-course snapshots) → chrome.storage.local ONLY
-//     These easily exceed sync's 8 KB per-item limit.
-//   • ff_badge_timestamps (small badge data) → chrome.storage.sync
-//     So NEW/UPDATED badges appear on all devices sharing a Google account.
-const SNAP_PREFIX = 'ff_snap_';
-const SCHEMA_VERSION = 2; // bumped to wipe stale v1 badge data from local+sync
-const BADGE_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
-
 function buildSnapshotKey(courseName, catName, itemLabel) {
     return `${catName}||${itemLabel}`;
 }
 
-/**
- * Read snapshots + schema version from local, badge timestamps from sync.
- * Merges into a single object for the diffAndSave logic.
- */
-function _readStorage(callback) {
-    chrome.storage.local.get(null, localStored => {
-        if (chrome.runtime.lastError) localStored = {};
-
-        // Badge timestamps live in sync for cross-device visibility
-        try {
-            chrome.storage.sync.get(['ff_badge_timestamps'], syncStored => {
-                if (chrome.runtime.lastError) syncStored = {};
-                // Sync badges take priority (they're the cross-device truth)
-                const merged = { ...localStored };
-                if (syncStored.ff_badge_timestamps) {
-                    merged.ff_badge_timestamps = syncStored.ff_badge_timestamps;
-                }
-                callback(merged);
-            });
-        } catch (e) {
-            // Extension context invalidated — proceed with local only
-            callback(localStored);
+function diffAndSave(marksData, callback) {
+    chrome.runtime.sendMessage({ action: 'processDiff', marksData }, (response) => {
+        if (callback && response && response.changedKeys) {
+            callback(new Set(response.changedKeys));
+        } else if (callback) {
+            callback(new Set());
         }
     });
-}
-
-/**
- * One-time migration: move ff_snap_* keys out of chrome.storage.sync
- * into chrome.storage.local to free quota.
- * Also clears ff_badge_timestamps from sync when old snapshots are found,
- * because those badges were created by the buggy first-install code that
- * marked every item as "NEW".
- */
-function _migrateSnapsFromSync(localStored, onDone) {
-    try {
-        chrome.storage.sync.get(null, syncStored => {
-            if (chrome.runtime.lastError || !syncStored) { onDone(localStored); return; }
-
-            const snapKeys = Object.keys(syncStored).filter(k =>
-                k.startsWith(SNAP_PREFIX) || k === 'ff_schema_version'
-            );
-            if (snapKeys.length === 0) { onDone(localStored); return; }
-
-            // Old snapshot keys in sync → old buggy code ran.
-            // The ff_badge_timestamps in sync are also from that buggy run
-            // (everything marked NEW), so purge them too.
-            const keysToRemove = [...snapKeys];
-            if (syncStored.ff_badge_timestamps) {
-                keysToRemove.push('ff_badge_timestamps');
-            }
-
-            // Copy sync snapshot data into local (local wins if both exist)
-            const toLocal = {};
-            snapKeys.forEach(k => {
-                if (!(k in localStored)) toLocal[k] = syncStored[k];
-            });
-
-            // Remove snapshot keys AND stale badges from sync
-            chrome.storage.sync.remove(keysToRemove, () => {
-                if (chrome.runtime.lastError) console.warn('ReFlex: Could not clean sync keys.', chrome.runtime.lastError.message);
-            });
-
-            const merged = { ...localStored };
-            // Copy snapshots to local
-            Object.assign(merged, toLocal);
-            // Clear badge timestamps so the new code starts fresh
-            delete merged.ff_badge_timestamps;
-
-            if (Object.keys(toLocal).length > 0) {
-                chrome.storage.local.set(toLocal);
-            }
-            onDone(merged);
-        });
-    } catch (e) {
-        onDone(localStored);
-    }
-}
-
-/**
- * Trim badge timestamps to fit under sync's 8 KB per-item limit.
- * Evicts oldest badges first until serialized size is safe.
- */
-const SYNC_ITEM_LIMIT = 7500; // leave headroom below 8192
-function _trimForSync(badges) {
-    let json = JSON.stringify(badges);
-    if (json.length <= SYNC_ITEM_LIMIT) return badges;
-
-    // Sort by timestamp ascending (oldest first) and evict
-    const entries = Object.entries(badges)
-        .sort((a, b) => a[1].timestamp - b[1].timestamp);
-    const trimmed = {};
-    // Add entries from newest to oldest until we'd exceed the limit
-    for (let i = entries.length - 1; i >= 0; i--) {
-        trimmed[entries[i][0]] = entries[i][1];
-        if (JSON.stringify(trimmed).length > SYNC_ITEM_LIMIT) {
-            delete trimmed[entries[i][0]];
-            break;
-        }
-    }
-    return trimmed;
-}
-
-function diffAndSave(marksData, callback) {
-    _readStorage(localStored => {
-        // One-time migration: move snapshots out of sync → local
-        _migrateSnapsFromSync(localStored, allStored => {
-
-        // Schema Versioning Check — wipe ALL old data on version bump
-        if (allStored.ff_schema_version !== SCHEMA_VERSION) {
-            const keysToWipe = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX));
-            keysToWipe.push('ff_badge_timestamps', 'ff_schema_version');
-            chrome.storage.local.remove(keysToWipe);
-            try {
-                chrome.storage.sync.remove(['ff_badge_timestamps', 'ff_schema_version'], () => {
-                    if (chrome.runtime.lastError) { /* ignore */ }
-                });
-            } catch (e) { /* extension context gone */ }
-            allStored = {};
-        }
-
-        // ── First-install detection ───────────────────────────────────────
-        // If NO prior snapshot keys exist on THIS device, it's a fresh
-        // install (or extension reload, which wipes local storage).
-        // Start with a clean slate — no badges. Also clear any stale
-        // badges lingering in sync (from the old buggy first-install code).
-        const hasExistingSnaps = Object.keys(allStored).some(k => k.startsWith(SNAP_PREFIX));
-        const isFirstRun = !hasExistingSnaps;
-
-        if (isFirstRun) {
-            // Wipe stale badges from sync so they don't resurface on next reload
-            try {
-                chrome.storage.sync.remove('ff_badge_timestamps', () => {
-                    if (chrome.runtime.lastError) { /* ignore */ }
-                });
-            } catch (e) { /* extension context gone */ }
-        }
-
-        const localWrites = { ff_schema_version: SCHEMA_VERSION };
-        const activeKeys = new Set(marksData.map(c => SNAP_PREFIX + c.courseName));
-
-        // 1. Garbage Collection: Remove old courses no longer on the page
-        const keysToRemove = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX) && !activeKeys.has(k));
-        if (keysToRemove.length > 0) {
-            chrome.storage.local.remove(keysToRemove);
-        }
-
-        // Retrieve existing badge timestamps — empty on first run
-        const badgeTimestamps = isFirstRun ? {} : (allStored.ff_badge_timestamps || {});
-        const now = Date.now();
-
-        // 2. Process current courses and find NEW/UPDATED grades
-        marksData.forEach(course => {
-            const storeKey  = SNAP_PREFIX + course.courseName;
-            const oldCourse = allStored[storeKey] || {};
-            const newCourse = {};
-
-            course.categories.forEach(cat => {
-                cat.items.forEach(item => {
-                    const snapKey = buildSnapshotKey(course.courseName, cat.name, item.label);
-                    const val     = `${item.obtained}|${item.total}`;
-                    newCourse[snapKey] = val;
-
-                    // Skip badge creation on first run — nothing is truly "new" on this device yet
-                    // (synced badges from other devices are already in badgeTimestamps)
-                    if (isFirstRun) return;
-
-                    // Full key used by the UI badge lookup
-                    const uiKey = `${course.courseName}||${cat.name}||${item.label}`;
-                    
-                    if (!(snapKey in oldCourse)) {
-                        badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
-                    } else {
-                        let oldValStr = oldCourse[snapKey];
-                        let [oldObtained, oldTotal] = oldValStr.split('|');
-                        
-                        // Handle backward compatibility where total was incorrectly saved as 'undefined'
-                        if (oldTotal === 'undefined') {
-                            oldTotal = String(item.total);
-                        }
-                        const normalizedOldVal = `${oldObtained}|${oldTotal}`;
-
-                        if (normalizedOldVal !== val) {
-                            // If it was previously ungraded (null), show as NEW instead of UPDATED
-                            if (oldObtained === 'null' && item.obtained !== null) {
-                                badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
-                            } else {
-                                badgeTimestamps[uiKey] = { type: 'UPDATED', timestamp: now };
-                            }
-                        }
-                    }
-                });
-            });
-
-            localWrites[storeKey] = newCourse;
-        });
-
-        // Build valid UI Keys to prune deleted elements or stale entries
-        const validUiKeys = new Set();
-        marksData.forEach(course => {
-            course.categories.forEach(cat => {
-                cat.items.forEach(item => {
-                    validUiKeys.add(`${course.courseName}||${cat.name}||${item.label}`);
-                });
-            });
-        });
-
-        // Prune expired or obsolete badges
-        for (const uiKey in badgeTimestamps) {
-            if (!validUiKeys.has(uiKey)) {
-                delete badgeTimestamps[uiKey];
-            } else if (now - badgeTimestamps[uiKey].timestamp > BADGE_EXPIRY_MS) {
-                delete badgeTimestamps[uiKey];
-            }
-        }
-
-        // Compile set of changed keys (e.g. key|NEW or key|UPDATED) for rendering compatibility
-        const changed = new Set();
-        const newUpdates = [];
-        for (const uiKey in badgeTimestamps) {
-            changed.add(uiKey + '|' + badgeTimestamps[uiKey].type);
-            
-            // Check if this badge was generated in this exact scan
-            if (badgeTimestamps[uiKey].timestamp === now) {
-                // e.g. "Software Engineering||Assignments||A1" -> "Software Engineering - Assignments - A1"
-                newUpdates.push(`${uiKey.replace(/\|\|/g, ' > ')} (${badgeTimestamps[uiKey].type})`);
-            }
-        }
-
-        // Trigger Email Notification for new updates
-        if (newUpdates.length > 0 && !isFirstRun) {
-            chrome.storage.local.get(['userEmail', 'accessToken'], (res) => {
-                if (res.userEmail && res.accessToken) {
-                    const messageStr = newUpdates.join('<br>');
-                    // Deployed Cloudflare Worker URL
-                    const WORKER_URL = 'https://reflex-notifier.shayanasim-dev.workers.dev/api/email';
-                    
-                    fetch(WORKER_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + res.accessToken
-                        },
-                        body: JSON.stringify({
-                            email: res.userEmail,
-                            message: messageStr
-                        })
-                    })
-                    .then(async (response) => {
-                        if (!response.ok) {
-                            const errText = await response.text();
-                            console.error("ReFlex: Email Notification Failed! Status:", response.status, "Error:", errText);
-                        } else {
-                            console.log("ReFlex: Email Notification Sent Successfully!");
-                        }
-                    })
-                    .catch(err => console.error("ReFlex: Network Error during Email Notification:", err));
-                }
-            });
-        }
-
-        // 3. Save snapshots to local (bulky, no quota issues)
-        chrome.storage.local.set(localWrites, () => {
-            if (chrome.runtime.lastError) {
-                console.warn('ReFlex: Could not save snapshots.', chrome.runtime.lastError.message);
-            }
-        });
-
-        // 4. Save badge timestamps to sync (small, cross-device)
-        //    Trim to fit under 8 KB per-item limit, evicting oldest badges first.
-        const syncBadges = _trimForSync(badgeTimestamps);
-        try {
-            chrome.storage.sync.set({ ff_badge_timestamps: syncBadges }, () => {
-                if (chrome.runtime.lastError) {
-                    console.warn('ReFlex: Could not sync badges, saving locally.', chrome.runtime.lastError.message);
-                    chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
-                }
-                callback(changed);
-            });
-        } catch (e) {
-            // Extension context invalidated — save locally and proceed
-            chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
-            callback(changed);
-        }
-
-        }); // end _migrateSnapsFromSync
-    }); // end _readStorage
 }
 
 

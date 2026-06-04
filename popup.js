@@ -36,17 +36,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Login button logic
+    const OAUTH_CLIENT_ID = '650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com';
+
     loginBtn.addEventListener('click', () => {
-        const clientId = '650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com';
-        const redirectUri = chrome.identity.getRedirectURL(); // The trailing slash is mandatory!
-        // Changed response_type to 'code' for secure Authorization Code Flow
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=email`;
-
-
-        chrome.identity.launchWebAuthFlow({
-            url: authUrl,
-            interactive: true
-        }, async (redirectUrl) => {
+        loginBtn.textContent = 'Authenticating securely...';
+        
+        const redirectUri = `https://${chrome.runtime.id}.chromiumapp.org/`;
+        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+            `?client_id=${encodeURIComponent(OAUTH_CLIENT_ID)}` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+            `&response_type=token` +
+            `&scope=${encodeURIComponent('https://www.googleapis.com/auth/userinfo.email')}`;
+        
+        chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async (redirectUrl) => {
             if (chrome.runtime.lastError || !redirectUrl) {
                 const errMsg = chrome.runtime.lastError ? chrome.runtime.lastError.message : 'Unknown error';
                 console.error('Auth Error:', errMsg);
@@ -60,40 +62,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Extract authorization code from redirect URL query parameters
-            const url = new URL(redirectUrl);
-            const code = url.searchParams.get('code');
-
-            if (!code) {
-                console.error("Authorization code not found in redirect URL:", redirectUrl);
-                loginBtn.textContent = 'Login Failed';
-                return;
-            }
-            
             try {
-                loginBtn.textContent = 'Authenticating securely...';
-                
-                // Securely exchange code for access token via our Cloudflare Worker Proxy
-                const WORKER_URL = 'https://reflex-notifier.shayanasim-dev.workers.dev/api/auth';
-                const tokenResponse = await fetch(WORKER_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        code: code,
-                        redirect_uri: redirectUri,
-                        client_id: clientId
-                    })
-                });
+                // Parse the access token from the redirect URL fragment
+                const params = new URLSearchParams(new URL(redirectUrl).hash.substring(1));
+                const accessToken = params.get('access_token');
+                const expiresIn = parseInt(params.get('expires_in'), 10);
+                if (!accessToken) throw new Error("No access token returned");
 
-                const tokenData = await tokenResponse.json();
-                
-                if (!tokenResponse.ok || !tokenData.access_token) {
-                    throw new Error(tokenData.error || "Failed to exchange token");
-                }
-
-                const accessToken = tokenData.access_token;
-
-                // Fetch the user email manually using the new secure access token
+                // Fetch the user's email using the access token
                 const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: { 'Authorization': 'Bearer ' + accessToken }
                 });
@@ -102,10 +78,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userEmail = userInfo.email;
                 if (!userEmail) throw new Error("Email not found");
                 
-                chrome.storage.local.set({ isLoggedIn: true, userEmail: userEmail, accessToken: accessToken }, () => {
+                // Store token + expiry so the background script can send emails
+                chrome.storage.local.set({
+                    isLoggedIn: true,
+                    userEmail: userEmail,
+                    authToken: accessToken,
+                    tokenExpiry: Date.now() + (expiresIn * 1000)
+                }, () => {
                     loginBtn.textContent = `✓ Logged in as: ${userEmail}`;
                     loginBtn.style.backgroundColor = 'var(--success-color)';
                     loginBtn.disabled = true;
+                    updateLoginUI(userEmail);
                 });
 
             } catch (err) {
@@ -118,17 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Logout logic
     logoutBtn.addEventListener('click', () => {
-        chrome.storage.local.remove(['userEmail', 'accessToken', 'isLoggedIn'], () => {
-            // Attempt to remove cached token so user can switch accounts if needed
-            chrome.identity.getAuthToken({ interactive: false }, (token) => {
-                if (token) {
-                    fetch(`https://accounts.google.com/o/oauth2/revoke?token=${token}`).catch(() => {});
-                    chrome.identity.removeCachedAuthToken({ token }, () => {
-                        updateLoginUI(null);
-                    });
-                } else {
-                    updateLoginUI(null);
-                }
+        chrome.storage.local.get(['authToken'], (result) => {
+            if (result.authToken) {
+                fetch(`https://accounts.google.com/o/oauth2/revoke?token=${result.authToken}`)
+                    .catch((e) => console.warn("ReFlex: Token revocation failed.", e));
+            }
+            chrome.storage.local.remove(['userEmail', 'isLoggedIn', 'authToken', 'tokenExpiry', 'pending_email_queue', 'email_queue_start_time'], () => {
+                updateLoginUI(null);
             });
         });
     });

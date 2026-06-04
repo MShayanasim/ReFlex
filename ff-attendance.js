@@ -18,7 +18,11 @@ function runAttendance() {
     const area = document.querySelector('.m-content, #m-content, .m-wrapper') || document.body;
     attObserver = new MutationObserver(() => {
         clearTimeout(attTimer);
-        attTimer = setTimeout(enhanceAttendanceTables, 400);
+        attTimer = setTimeout(() => {
+            if (attObserver) attObserver.disconnect();
+            enhanceAttendanceTables();
+            if (attObserver) attObserver.observe(area, { childList: true, subtree: true });
+        }, 400);
     });
     attObserver.observe(area, { childList: true, subtree: true });
 

@@ -570,8 +570,8 @@
    UI is injected or when navigating to a non-ReFlex page. */
 html.ff-veil-native .m-content > *:not(#ff-root) {
     opacity: 0 !important;
-    visibility: hidden !important;
     pointer-events: none !important;
+    /* Removed visibility: hidden so Angular's lazy loaders still register the element as in-DOM for programmatic clicks */
 }
 
 /* The main sidebar container */
@@ -1312,6 +1312,16 @@ html.ff-dark .ff-tr-contrib { color: #4ade80; }
     color: #1e293b;
 }
 
+/* ── CSP-Compliant Button Hovers ───────────────────────── */
+.ff-mark-read-btn:hover {
+    color: var(--success-color, #10b981) !important;
+}
+#ff-mark-all-read:hover {
+    background-color: rgba(16,185,129,0.1) !important;
+    color: var(--success-color, #10b981) !important;
+    border-color: var(--success-color, #10b981) !important;
+}
+
 /* ── Pull Tab Button ────────────────────────────────────── */
 .ff-updates-pull-tab {
     position: absolute;
@@ -1439,3 +1449,61 @@ html.ff-dark .input-group-addon {
     color: #64748b !important;
 }
 
+/* ── Grand Final Marks Card ──────────────────────────────── */
+.ff-grand-total-card {
+    margin-top: 32px;
+    background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+    border-radius: 16px;
+    padding: 24px;
+    color: #ffffff;
+    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.ff-gt-header {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+}
+.ff-gt-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+}
+.ff-gt-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.ff-gt-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.75);
+    letter-spacing: 0.05em;
+}
+.ff-gt-val {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+.ff-gt-val.ff-gt-highlight {
+    color: #fde047;
+    font-size: 1.5rem;
+}
+@media (max-width: 900px) {
+    .ff-gt-grid { grid-template-columns: repeat(3, 1fr); gap: 24px; }
+}
+@media (max-width: 500px) {
+    .ff-gt-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+html.ff-dark .ff-grand-total-card {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    border-color: rgba(99, 102, 241, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}

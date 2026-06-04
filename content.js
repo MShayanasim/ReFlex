@@ -40,6 +40,72 @@
     }
 })();
 
+// Listen for cross-tab storage changes
+chrome.storage.onChanged.addListener((changes, namespace) => {
+    // Intentionally empty.
+});
+
+// Listener for NEW_MARKS_DATA trigger from background
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'NEW_MARKS_DATA') {
+        const url = location.href.toLowerCase();
+        if (!url.includes('marks')) return; // Context Awareness
+
+        let iframe = document.getElementById('ff-sync-iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'ff-sync-iframe';
+            iframe.style.display = 'none';
+            // Use ff_sync=1 to tell runMarks.js to run in sync mode
+            iframe.src = '/Student/Marks?ff_sync=1';
+            document.body.appendChild(iframe);
+        }
+    }
+});
+
+// Catch extracted data from the hidden iframe
+window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+    if (event.data && event.data.type === 'FF_SYNC_COMPLETE') {
+        const iframe = document.getElementById('ff-sync-iframe');
+        if (iframe) iframe.remove();
+        
+        const marksData = event.data.marksData;
+        window._ffBackgroundMarksCache = marksData; // Stale DOM Override
+        
+        let activeCourseIdx = 0;
+        const activeTab = document.querySelector('.ff-course-tabs .ff-tab.active');
+        if (activeTab) {
+            const tabs = Array.from(document.querySelectorAll('.ff-course-tabs .ff-tab'));
+            activeCourseIdx = tabs.indexOf(activeTab);
+        }
+        
+        let drawerOpen = false;
+        const drawer = document.querySelector('.ff-updates-drawer');
+        if (drawer && drawer.classList.contains('open')) {
+            drawerOpen = true;
+        }
+
+        if (window.renderMarksDashboard) {
+            window.renderMarksDashboard(marksData, new Set(), { activeCourseIdx, drawerOpen });
+        }
+    }
+});
+
+let ffSyncPoller = null;
+function startVisibilityAwarePolling() {
+    if (ffSyncPoller) clearInterval(ffSyncPoller);
+    ffSyncPoller = setInterval(() => {
+        if (document.visibilityState === 'visible' && location.href.toLowerCase().includes('marks')) {
+            try {
+                chrome.runtime.sendMessage({ action: 'triggerBackgroundCheck' }).catch(()=>{});
+            } catch(e){}
+        }
+    }, 4 * 60 * 1000); // 4 minutes
+}
+startVisibilityAwarePolling();
+
+
 // ══════════════════════════════════════════════════════════════════════════
 // 2. TOPBAR TOGGLE — UI switch + dark/light theme switch injected into nav
 // ══════════════════════════════════════════════════════════════════════════
@@ -122,6 +188,7 @@ function ffInjectTopbarToggle() {
             const url = location.href.toLowerCase();
             if (url.includes('marks'))      window.ffRunMarks      && window.ffRunMarks();
             else if (url.includes('transcript')) window.ffRunTranscript && window.ffRunTranscript();
+            else if (url.includes('attendance')) window.ffRunAttendance && window.ffRunAttendance();
         }
     });
 
@@ -228,6 +295,7 @@ function ffInjectRecaptchaThemer() {
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
+    window.ffRecaptchaObserver = observer;
 }
 window.ffInjectRecaptchaThemer = ffInjectRecaptchaThemer;
 
@@ -315,8 +383,15 @@ window.ffGetCreditHours = (code) => _crCache[code] ?? null;
 // 4. MARKS DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════
 
-function renderMarksDashboard(marksData, changedKeys) {
+function renderMarksDashboard(marksData, changedKeys, options = {}) {
     if (!ffUIEnabled) return;
+    
+    // Clear old click handler BEFORE wiping DOM to prevent detached closure leaks
+    if (_outsideClickHandler) {
+        document.removeEventListener('click', _outsideClickHandler);
+        _outsideClickHandler = null;
+    }
+
     hideNative();
 
     const root = mountRoot();
@@ -331,9 +406,11 @@ function renderMarksDashboard(marksData, changedKeys) {
             cat.items.forEach(item => {
                 const courseKey = `${course.courseName}||${cat.name}||${item.label}`;
                 if (changedKeys && changedKeys.has(courseKey + '|NEW')) {
-                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'NEW' });
+                    const qStr = `${courseKey.replace(/\|\|/g, ' > ')} (NEW)`;
+                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'NEW', courseKey, queueString: qStr });
                 } else if (changedKeys && changedKeys.has(courseKey + '|UPDATED')) {
-                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'UPDATED' });
+                    const qStr = `${courseKey.replace(/\|\|/g, ' > ')} (UPDATED)`;
+                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'UPDATED', courseKey, queueString: qStr });
                 }
             });
         });
@@ -358,9 +435,10 @@ function renderMarksDashboard(marksData, changedKeys) {
                         <span class="ff-updates-drawer-row-course">${esc(upd.courseCode)}</span>
                         <span class="ff-updates-drawer-row-item">${esc(itemName)} (${esc(upd.catName)})</span>
                     </div>
-                    <div class="ff-updates-drawer-row-right">
+                    <div class="ff-updates-drawer-row-right" style="display: flex; align-items: center; gap: 8px;">
                         <span class="ff-updates-drawer-row-score">${obtainedStr} / ${upd.item.total}</span>
                         <span class="${badgeClass}">${upd.type}</span>
+                        <button class="ff-mark-read-btn" data-course-key="${esc(upd.courseKey)}" data-queue-string="${esc(upd.queueString)}" title="Mark as Read" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; font-weight: bold; font-size: 14px; transition: color 0.2s;">✓</button>
                     </div>
                 </div>
             `;
@@ -380,7 +458,10 @@ function renderMarksDashboard(marksData, changedKeys) {
 
     drawer.innerHTML = `
         <div class="ff-updates-drawer-content">
-            <h4>🔔 Recent Updates</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0;">🔔 Recent Updates</h4>
+                ${recentUpdates.length > 0 ? `<button id="ff-mark-all-read" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s;">Mark All ✓</button>` : ''}
+            </div>
             <div class="ff-updates-list">
                 ${updatesHtml}
             </div>
@@ -394,15 +475,68 @@ function renderMarksDashboard(marksData, changedKeys) {
 
     root.appendChild(drawer);
 
+    // ─ Mark As Read Listeners ──────────────────────────────────────────
+    const markAllBtn = drawer.querySelector('#ff-mark-all-read');
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // prevent row click
+            const uiKeys = recentUpdates.map(u => u.courseKey);
+            const queueStrings = recentUpdates.map(u => u.queueString);
+            chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys, queueStrings });
+            
+            // Instantly clear the UI visually without reloading
+            drawer.querySelector('.ff-updates-list').innerHTML = `
+                <div class="ff-updates-empty">
+                    <span style="font-size: 1.6rem;">🎉</span>
+                    <span>No new updates. All your grades are up-to-date!</span>
+                </div>
+            `;
+            drawer.querySelector('.ff-pull-tab-text').textContent = 'No Updates';
+            markAllBtn.remove(); // hide the Mark All button
+        });
+    }
+
+    drawer.querySelectorAll('.ff-mark-read-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation(); // prevent row click
+            const uiKey = btn.getAttribute('data-course-key');
+            const qStr = btn.getAttribute('data-queue-string');
+            chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys: [uiKey], queueStrings: [qStr] });
+            
+            // Instantly remove this specific row visually
+            const row = btn.closest('.ff-updates-drawer-row');
+            if (row) row.remove();
+            
+            // Update the header count dynamically
+            const list = drawer.querySelector('.ff-updates-list');
+            const remainingRows = list.querySelectorAll('.ff-updates-drawer-row').length;
+            
+            if (remainingRows === 0) {
+                list.innerHTML = `
+                    <div class="ff-updates-empty">
+                        <span style="font-size: 1.6rem;">🎉</span>
+                        <span>No new updates. All your grades are up-to-date!</span>
+                    </div>
+                `;
+                drawer.querySelector('.ff-pull-tab-text').textContent = 'No Updates';
+                if (markAllBtn) markAllBtn.remove();
+            } else {
+                drawer.querySelector('.ff-pull-tab-text').textContent = remainingRows + (remainingRows > 1 ? ' Updates' : ' Update');
+            }
+        });
+    });
+
     // Toggle drawer open/close
     const pullTab = drawer.querySelector('.ff-updates-pull-tab');
     pullTab.addEventListener('click', (e) => {
         e.stopPropagation();
         drawer.classList.toggle('open');
     });
+    
+    // Restore preserved state
+    if (options.drawerOpen) drawer.classList.add('open');
 
     // Click outside closes drawer
-    if (_outsideClickHandler) document.removeEventListener('click', _outsideClickHandler);
     _outsideClickHandler = (e) => {
         if (!drawer.contains(e.target) && drawer.classList.contains('open')) {
             drawer.classList.remove('open');
@@ -446,7 +580,42 @@ function renderMarksDashboard(marksData, changedKeys) {
     // ─ Header ─────────────────────────────────────────────────────────
     const header = document.createElement('div');
     header.className = 'ff-header';
-    header.innerHTML = `<h2>📊 Marks</h2>`;
+    
+    const titleWrapper = document.createElement('div');
+    titleWrapper.style.display = 'flex';
+    titleWrapper.style.alignItems = 'center';
+    titleWrapper.style.gap = '20px'; // Increased spacing
+    
+    const title = document.createElement('h2');
+    title.innerHTML = `📊 Marks`;
+    title.style.margin = '0';
+    
+    const syncBtn = document.createElement('div');
+    syncBtn.title = 'Sync Marks';
+    syncBtn.style.cssText = 'cursor: pointer; height: 32px; padding: 0 12px; border-radius: 6px; background: var(--card-bg); display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border-color); color: var(--text-muted); font-size: 13px; font-weight: 500; transition: all 0.2s;';
+    syncBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.4s;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg><span>Sync marks</span>`;
+    
+    syncBtn.addEventListener('mouseover', () => {
+        syncBtn.style.borderColor = 'var(--text-color)';
+        syncBtn.style.color = 'var(--text-color)';
+    });
+    syncBtn.addEventListener('mouseout', () => {
+        syncBtn.style.borderColor = 'var(--border-color)';
+        syncBtn.style.color = 'var(--text-muted)';
+    });
+    syncBtn.addEventListener('click', () => {
+        const svg = syncBtn.querySelector('svg');
+        svg.style.transform = `rotate(${(parseInt(svg.dataset.rot||0) + 360)}deg)`;
+        svg.dataset.rot = (parseInt(svg.dataset.rot||0) + 360);
+        try {
+            chrome.runtime.sendMessage({ action: 'triggerBackgroundCheck' }).catch(()=>{});
+        } catch(e){}
+    });
+    
+    titleWrapper.appendChild(title);
+    titleWrapper.appendChild(syncBtn);
+    header.appendChild(titleWrapper);
+    
     root.appendChild(header);
 
     // ─ Course tabs ────────────────────────────────────────────────────
@@ -454,7 +623,7 @@ function renderMarksDashboard(marksData, changedKeys) {
     tabBar.className = 'ff-course-tabs';
     header.appendChild(tabBar);
 
-    let activeCourse = 0;
+    let activeCourse = options.activeCourseIdx || 0;
     const panels = [];
 
     marksData.forEach((course, idx) => {
@@ -482,7 +651,7 @@ function renderMarksDashboard(marksData, changedKeys) {
         const tier = pctToGrade(overallPct);
 
         const tab = document.createElement('div');
-        tab.className = 'ff-tab' + (idx === 0 ? ' active' : '');
+        tab.className = 'ff-tab' + (idx === activeCourse ? ' active' : '');
         tab.innerHTML = `
             <span class="ff-tab-code">${esc(code)}</span>
             <span class="ff-tab-name">${esc(displayName)}</span>
@@ -497,7 +666,7 @@ function renderMarksDashboard(marksData, changedKeys) {
 
         // ─ Panel for this course ─────────────────────────────────────
         const panel = document.createElement('div');
-        panel.style.display = idx === 0 ? '' : 'none';
+        panel.style.display = idx === activeCourse ? '' : 'none';
         root.appendChild(panel);
         panels.push(panel);
 
@@ -524,7 +693,15 @@ function renderMarksDashboard(marksData, changedKeys) {
         });
         const ungradedWeight = Math.max(0, 100 - gradedWeight);
 
-        const classAvgPct = avgGradedWeight > 0 ? (totalAvgObtained / avgGradedWeight * 100) : 0;
+        let classAvgPct = avgGradedWeight > 0 ? (totalAvgObtained / avgGradedWeight * 100) : 0;
+        
+        // Use true class average from Grand Total if weightage is completely exhausted
+        if (course.grandTotal && course.grandTotal.classAverage !== null && ungradedWeight <= 0.01) {
+            classAvgPct = course.grandTotal.classAverage;
+            totalAvgObtained = course.grandTotal.classAverage;
+            avgGradedWeight = 100;
+        }
+
         const tierGpa = tier.gpa.toFixed(2);
         const gs = gradeStyle(tier.label);
 
@@ -724,6 +901,37 @@ function renderMarksDashboard(marksData, changedKeys) {
             card.appendChild(itemsTable);
             grid.appendChild(card);
         });
+
+        // ─ Grand Final Marks Card ─────────────────────────────────────
+        if (course.grandTotal) {
+            const gt = course.grandTotal;
+            const gtCard = document.createElement('div');
+            gtCard.className = 'ff-grand-total-card';
+            gtCard.dataset.courseName = course.courseName;
+            
+            const totalStr = gt.totalMarks !== null ? gt.totalMarks : '-';
+            const obtStr = gt.obtainedMarks !== null ? gt.obtainedMarks : '-';
+            const avgStr = gt.classAverage !== undefined && gt.classAverage !== null ? gt.classAverage : '-';
+            const minStr = gt.min !== null ? gt.min : '-';
+            const maxStr = gt.max !== null ? gt.max : '-';
+            const stdStr = gt.stdDev !== null ? gt.stdDev : '-';
+            
+            gtCard.innerHTML = `
+                <div class="ff-gt-header" style="color: #fbbf24; border-bottom-color: rgba(251,191,36,0.15);">Grand Final Marks</div>
+                <div class="ff-gt-grid">
+                    <div class="ff-gt-stat"><span class="ff-gt-label">TOTAL</span><span class="ff-gt-val">${esc(String(totalStr))}</span></div>
+                    <div class="ff-gt-stat"><span class="ff-gt-label">OBTAINED</span><span class="ff-gt-val ff-gt-highlight" style="color: #fbbf24;">${esc(String(obtStr))}</span></div>
+                    <div class="ff-gt-stat"><span class="ff-gt-label">CLASS AVG</span><span class="ff-gt-val">${esc(String(avgStr))}</span></div>
+                    <div class="ff-gt-stat"><span class="ff-gt-label">MIN</span><span class="ff-gt-val">${esc(String(minStr))}</span></div>
+                    <div class="ff-gt-stat"><span class="ff-gt-label">MAX</span><span class="ff-gt-val">${esc(String(maxStr))}</span></div>
+                    <div class="ff-gt-stat"><span class="ff-gt-label">STD DEV</span><span class="ff-gt-val">${esc(String(stdStr))}</span></div>
+                </div>
+            `;
+            // Add golden styling natively
+            gtCard.style.cssText = "background: linear-gradient(145deg, rgba(39, 33, 21, 0.6) 0%, rgba(23, 18, 8, 0.4) 100%); border: 1px solid rgba(251, 191, 36, 0.3); box-shadow: 0 4px 20px -2px rgba(251, 191, 36, 0.08);";
+            
+            panel.appendChild(gtCard);
+        }
     });
 
     // Expose credit-hour lookup for attendance module
@@ -738,7 +946,138 @@ function renderMarksDashboard(marksData, changedKeys) {
         }
     });
 }
-window.ffRunMarks = () => { if (typeof runMarks === 'function') runMarks(); };
+window.ffRunMarks = (isSilent) => { if (typeof runMarks === 'function') runMarks(isSilent); };
+
+window.updateGrandTotalCardsInDOM = (marksData) => {
+    // Only escape HTML safely
+    const esc = str => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    
+    marksData.forEach(course => {
+        if (!course.grandTotal) return;
+        let gtCard = document.querySelector(`.ff-grand-total-card[data-course-name="${course.courseName.replace(/"/g, '\\"')}"]`);
+        if (!gtCard) {
+            const panels = Array.from(document.querySelectorAll('#ff-root > div')).filter(div => !div.classList.contains('ff-header') && !div.classList.contains('ff-updates-drawer') && div.querySelector('.ff-progress-card'));
+            const panel = panels[marksData.indexOf(course)];
+            if (!panel) return;
+            
+            gtCard = document.createElement('div');
+            gtCard.className = 'ff-grand-total-card';
+            gtCard.dataset.courseName = course.courseName;
+            gtCard.style.cssText = "background: linear-gradient(145deg, rgba(39, 33, 21, 0.6) 0%, rgba(23, 18, 8, 0.4) 100%); border: 1px solid rgba(251, 191, 36, 0.3); box-shadow: 0 4px 20px -2px rgba(251, 191, 36, 0.08);";
+            panel.appendChild(gtCard);
+        }
+        
+        const gt = course.grandTotal;
+        const totalStr = gt.totalMarks !== null ? gt.totalMarks : '-';
+        const obtStr = gt.obtainedMarks !== null ? gt.obtainedMarks : '-';
+        const avgStr = gt.classAverage !== undefined && gt.classAverage !== null ? gt.classAverage : '-';
+        const minStr = gt.min !== null ? gt.min : '-';
+        const maxStr = gt.max !== null ? gt.max : '-';
+        const stdStr = gt.stdDev !== null ? gt.stdDev : '-';
+        
+        gtCard.innerHTML = `
+            <div class="ff-gt-header" style="color: #fbbf24; border-bottom-color: rgba(251,191,36,0.15);">Grand Final Marks</div>
+            <div class="ff-gt-grid">
+                <div class="ff-gt-stat"><span class="ff-gt-label">TOTAL</span><span class="ff-gt-val">${esc(String(totalStr))}</span></div>
+                <div class="ff-gt-stat"><span class="ff-gt-label">OBTAINED</span><span class="ff-gt-val ff-gt-highlight" style="color: #fbbf24;">${esc(String(obtStr))}</span></div>
+                <div class="ff-gt-stat"><span class="ff-gt-label">CLASS AVG</span><span class="ff-gt-val">${esc(String(avgStr))}</span></div>
+                <div class="ff-gt-stat"><span class="ff-gt-label">MIN</span><span class="ff-gt-val">${esc(String(minStr))}</span></div>
+                <div class="ff-gt-stat"><span class="ff-gt-label">MAX</span><span class="ff-gt-val">${esc(String(maxStr))}</span></div>
+                <div class="ff-gt-stat"><span class="ff-gt-label">STD DEV</span><span class="ff-gt-val">${esc(String(stdStr))}</span></div>
+            </div>
+        `;
+        
+        // ── SURGICAL UPDATE OF ENTIRE PERFORMANCE CARD ──
+        // The panel is the direct parent of the grand total card (a plain div with no class)
+        const panel = gtCard.parentElement;
+        if (!panel) return;
+        
+        // Recompute the user's overall score from latest data
+        let totalObtained = 0, totalWeight = 0;
+        let totalAvgObtained = 0, avgGradedWeight = 0;
+        course.categories.forEach(cat => {
+            cat.items.forEach(item => {
+                if (item.obtained !== null && item.obtained !== undefined && item.weight > 0 && item.total > 0) {
+                    totalObtained += (item.obtained / item.total) * item.weight;
+                    totalWeight += item.weight;
+                }
+                if (item.avg !== null && item.avg !== undefined && item.weight > 0 && item.total > 0) {
+                    totalAvgObtained += (item.avg / item.total) * item.weight;
+                    avgGradedWeight += item.weight;
+                }
+            });
+        });
+        
+        const gradedWeight = totalWeight;
+        const overallPct = gradedWeight > 0 ? (totalObtained / gradedWeight * 100) : 0;
+        const tier = pctToGrade(overallPct);
+        const gs = gradeStyle(tier.label);
+        
+        // Update big score text + GPA badge
+        const bigScore = panel.querySelector('.ff-big-score');
+        if (bigScore) {
+            if (bigScore.firstChild && bigScore.firstChild.nodeType === 3) {
+                bigScore.firstChild.nodeValue = overallPct.toFixed(2) + '% ';
+            }
+            const badge = bigScore.querySelector('.ff-gpa-badge');
+            if (badge) {
+                badge.style.background = gs.bg;
+                badge.style.borderColor = gs.border;
+                badge.style.color = gs.text;
+                badge.innerHTML = `${tier.label} &nbsp;&middot;&nbsp; ${tier.gpa.toFixed(2)} GPA`;
+            }
+        }
+        
+        // Update bar fill
+        const barFill = panel.querySelector('.ff-bar-fill');
+        if (barFill) barFill.style.width = Math.min(overallPct, 100).toFixed(1) + '%';
+        
+        // Update "me" pointer
+        const ptrMe = panel.querySelector('.ff-ptr-me');
+        if (ptrMe) ptrMe.style.left = Math.min(overallPct, 100).toFixed(1) + '%';
+        
+        const ptrLabelMe = panel.querySelector('.ff-ptr-label-me');
+        if (ptrLabelMe) ptrLabelMe.innerHTML = `&#9660; ${overallPct.toFixed(2)}%`;
+        
+        // Update stats row — graded to date
+        const statsRow = panel.querySelector('.ff-stats-row');
+        if (statsRow) {
+            const spans = statsRow.querySelectorAll('span');
+            if (spans.length > 0) {
+                spans[0].innerHTML = `Graded to Date: <strong>${totalObtained.toFixed(2)} / ${gradedWeight.toFixed(2)} wt</strong>`;
+            }
+        }
+        
+        // ── UPDATE CLASS AVERAGE IF WEIGHTAGE IS 100% ──
+        let classAvgPct = avgGradedWeight > 0 ? (totalAvgObtained / avgGradedWeight * 100) : 0;
+        let displayAvgObtained = totalAvgObtained;
+        let displayAvgTotal = avgGradedWeight;
+        
+        if (gt.classAverage !== null && gt.classAverage !== undefined && (100 - gradedWeight) <= 0.01) {
+            classAvgPct = gt.classAverage;
+            displayAvgObtained = gt.classAverage;
+            displayAvgTotal = 100;
+        }
+        
+        if (classAvgPct > 0) {
+            const rightAvgText = panel.querySelector('.ff-right-avg-text strong');
+            if (rightAvgText) rightAvgText.textContent = classAvgPct.toFixed(2) + '%';
+            
+            const ptrAvg = panel.querySelector('.ff-ptr-avg');
+            if (ptrAvg) ptrAvg.style.left = Math.min(classAvgPct, 100).toFixed(1) + '%';
+            
+            const ptrLabel = panel.querySelector('.ff-ptr-avg .ff-ptr-label');
+            if (ptrLabel) ptrLabel.textContent = 'Class Avg ' + classAvgPct.toFixed(2) + '%';
+            
+            if (statsRow) {
+                const spans = statsRow.querySelectorAll('span');
+                if (spans.length > 1) {
+                    spans[1].innerHTML = `Class Average: <strong>${displayAvgObtained.toFixed(2)} / ${displayAvgTotal.toFixed(2)} wt</strong>`;
+                }
+            }
+        }
+    });
+};
 
 // ── GPA Projection Row ──────────────────────────────────────────────────
 function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
@@ -765,6 +1104,13 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
     const result = document.createElement('span');
     row.appendChild(result);
 
+    const noWeightBadge = document.createElement('span');
+    noWeightBadge.className = 'ff-gpa-impossible';
+    noWeightBadge.textContent = 'No remaining weight';
+    noWeightBadge.style.display = 'none';
+    noWeightBadge.style.marginLeft = '8px';
+    row.appendChild(noWeightBadge);
+
     let showWeightage = false;
     result.style.cursor = 'pointer';
     result.title = 'Click to toggle between percentage and weightage';
@@ -777,40 +1123,59 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
         const target = parseFloat(sel.value);
         const currentContrib = currentPct * (gradedWeight / 100);
         
-        if (currentContrib >= target) {
+        if (ungradedWeight <= 0) {
             result.className = 'ff-gpa-top';
-            result.textContent = 'Already achieved!';
-        } else if (ungradedWeight <= 0) {
-            result.className = 'ff-gpa-impossible';
-            result.textContent = 'No remaining weight';
+            result.textContent = 'Target achieved';
+            noWeightBadge.style.display = '';
         } else {
-            const neededWeight = target - currentContrib;
-            const neededOnRemaining = (neededWeight / ungradedWeight) * 100;
-            const tierObj = GPA_TIERS.find(t=>t.pct===target);
-            const suffix = tierObj ? ` → ${tierObj.label} (${tierObj.gpa.toFixed(2)})` : '';
-
-            if (neededOnRemaining > 100) {
-                result.className = 'ff-gpa-impossible';
-                if (showWeightage) {
-                    result.textContent = `Impossible (need ${neededWeight.toFixed(2)} weight on remaining ${ungradedWeight.toFixed(2)} weight)${suffix}`;
-                } else {
-                    result.textContent = `Impossible (need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}%)${suffix}`;
-                }
+            noWeightBadge.style.display = 'none';
+            if (currentContrib >= target) {
+                result.className = 'ff-gpa-top';
+                result.textContent = 'Already achieved!';
             } else {
-                result.className = 'ff-gpa-next';
-                if (showWeightage) {
-                    result.textContent = `Need ${neededWeight.toFixed(2)} weight on remaining ${ungradedWeight.toFixed(2)} weight${suffix}`;
+                const neededWeight = target - currentContrib;
+                const neededOnRemaining = (neededWeight / ungradedWeight) * 100;
+                const tierObj = GPA_TIERS.find(t=>t.pct===target);
+                const suffix = tierObj ? ` → ${tierObj.label} (${tierObj.gpa.toFixed(2)})` : '';
+
+                if (neededOnRemaining > 100) {
+                    result.className = 'ff-gpa-impossible';
+                    if (showWeightage) {
+                        result.textContent = `Impossible (need ${neededWeight.toFixed(2)} weight on remaining ${ungradedWeight.toFixed(2)} weight)${suffix}`;
+                    } else {
+                        result.textContent = `Impossible (need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}%)${suffix}`;
+                    }
                 } else {
-                    result.textContent = `Need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}%${suffix}`;
+                    result.className = 'ff-gpa-next';
+                    if (showWeightage) {
+                        result.textContent = `Need ${neededWeight.toFixed(2)} weight on remaining ${ungradedWeight.toFixed(2)} weight${suffix}`;
+                    } else {
+                        result.textContent = `Need ${neededOnRemaining.toFixed(1)}% on remaining ${ungradedWeight.toFixed(1)}%${suffix}`;
+                    }
                 }
             }
         }
     }
     sel.addEventListener('change', update);
-    // Pre-select the tier just above current
-    const nextTier = [...availableTiers].reverse().find(t => t.pct > currentPct);
-    if (nextTier) sel.value = nextTier.pct;
-    else sel.value = availableTiers[0].pct;
+    
+    if (ungradedWeight <= 0) {
+        sel.disabled = true;
+        const currentTier = pctToGrade(currentPct);
+        const exists = availableTiers.some(t => t.pct === currentTier.pct);
+        if (!exists) {
+            const opt = document.createElement('option');
+            opt.value = currentTier.pct;
+            opt.textContent = `${currentTier.label} (${currentTier.gpa.toFixed(2)})`;
+            sel.appendChild(opt);
+        }
+        sel.value = currentTier.pct;
+    } else {
+        // Pre-select the tier just above current
+        const nextTier = [...availableTiers].reverse().find(t => t.pct > currentPct);
+        if (nextTier) sel.value = nextTier.pct;
+        else sel.value = availableTiers[0].pct;
+    }
+    
     update();
     return row;
 }

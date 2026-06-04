@@ -84,11 +84,18 @@ export default {
 
       // The extension will send the user's email and the update text
       const userEmail = data.email; 
-      const updateMessage = data.message;
+      const updateMessageRaw = data.message;
       
-      if (!userEmail || !updateMessage) {
+      if (!userEmail || !updateMessageRaw) {
         return new Response(JSON.stringify({ error: "Missing email or message data" }), { status: 400, headers: corsHeaders });
       }
+
+      // Sanitize the message but preserve the intended <br> breaks
+      const updateMessage = String(updateMessageRaw).split('<br>').map(str => {
+        return str.replace(/[&<>"']/g, match => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[match]));
+      }).join('<br>');
 
       // CRITICAL SECURITY FIX 2: Rate Limiting
       // Protect your Brevo quota from malicious draining (where an attacker spams their own email)
@@ -104,6 +111,15 @@ export default {
           }
         }
         lastCleanup = now;
+      }
+
+      // Cap size to prevent OOM
+      if (rateLimitMap.size > 10000) {
+        let i = 0;
+        for (const key of rateLimitMap.keys()) {
+          rateLimitMap.delete(key);
+          if (++i > 2000) break; // Remove oldest 2000
+        }
       }
 
       const lastRequestTime = rateLimitMap.get(rateLimitKey);
