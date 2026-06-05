@@ -237,7 +237,7 @@
     if (location.search.includes('ff_sync=1')) {
         // We are in the hidden sync iframe!
         // The data is fully extracted. Send it to parent and stop.
-        window.parent.postMessage({ type: 'FF_SYNC_COMPLETE', marksData }, '*');
+        window.parent.postMessage({ type: 'FF_SYNC_COMPLETE', marksData }, window.location.origin);
         return;
     }
 

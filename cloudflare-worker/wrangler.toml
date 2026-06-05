@@ -6,11 +6,12 @@ compatibility_date = "2024-05-31"
 # wrangler deploy
 
 # Before deploying, make sure to add your secrets to Cloudflare via the CLI:
-# wrangler secret put KATBAN_API_KEY
-# (When prompted, paste your 'Katban' key or whatever string you want to use for security)
+# wrangler secret put GOOGLE_CLIENT_SECRET
+# (When prompted, paste your Google OAuth Web Application client secret)
 #
-# wrangler secret put RESEND_API_KEY
-# (When prompted, paste your Resend API key: re_PkxxFbxt_...)
+# wrangler secret put BREVO_API_KEY
+# (When prompted, paste your primary Brevo transactional email API key)
+# Optional: wrangler secret put BREVO_API_KEY_2 / BREVO_API_KEY_3 / BREVO_API_KEY_4 for failover
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT_STORE"

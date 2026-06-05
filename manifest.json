@@ -5,7 +5,7 @@
   "version": "2.0.1",
   "minimum_chrome_version": "109",
   "description": "Redesigns the FAST-NUCES Flex portal with a premium dashboard, dark mode, GPA projections, and live grade change tracking.",
-  "permissions": ["storage", "activeTab", "identity", "background", "alarms", "offscreen"],
+  "permissions": ["storage", "identity", "alarms", "offscreen", "notifications"],
   "host_permissions": ["*://flexstudent.nu.edu.pk/*"],
   "oauth2": {
     "client_id": "650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com",

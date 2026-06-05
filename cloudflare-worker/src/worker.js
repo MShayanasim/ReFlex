@@ -1,11 +1,14 @@
 export default {
   async fetch(request, env, ctx) {
     const requestOrigin = request.headers.get("Origin");
-    const allowedOrigins = [
-      "chrome-extension://hljpjnkdjelocgcgocknamkjafgbfkfg",
-      "https://flexstudent.nu.edu.pk"
-    ];
-    const corsOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
+    // Match our extension ID across all Chromium browser origin schemes
+    // Chrome: chrome-extension://  Edge: extension://  Brave: chrome-extension://
+    const extensionId = "hljpjnkdjelocgcgocknamkjafgbfkfg";
+    const expectedClientId = "650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com";
+    const expectedRedirectUri = `https://${extensionId}.chromiumapp.org/`;
+    const isAllowedExtension = requestOrigin && requestOrigin.endsWith("://" + extensionId) &&
+        /^(chrome-extension|extension)$/.test(requestOrigin.split("://")[0]);
+    const corsOrigin = isAllowedExtension ? requestOrigin : "chrome-extension://" + extensionId;
 
     const corsHeaders = {
       "Access-Control-Allow-Origin": corsOrigin,
@@ -35,6 +38,9 @@ export default {
         const { code, redirect_uri, client_id } = data;
         if (!code || !redirect_uri || !client_id) {
           return new Response(JSON.stringify({ error: "Missing auth parameters" }), { status: 400, headers: corsHeaders });
+        }
+        if (client_id !== expectedClientId || redirect_uri !== expectedRedirectUri) {
+          return new Response(JSON.stringify({ error: "Invalid OAuth client or redirect URI" }), { status: 403, headers: corsHeaders });
         }
 
         // Rate limit: Max 10 auth requests per IP per hour
@@ -74,6 +80,9 @@ export default {
         const { refresh_token, client_id } = data;
         if (!refresh_token || !client_id) {
           return new Response(JSON.stringify({ error: "Missing refresh parameters" }), { status: 400, headers: corsHeaders });
+        }
+        if (client_id !== expectedClientId) {
+          return new Response(JSON.stringify({ error: "Invalid OAuth client" }), { status: 403, headers: corsHeaders });
         }
 
         // Rate limit: Max 30 refresh requests per IP per hour
@@ -132,8 +141,25 @@ export default {
         }[match]));
       }).join('<br>');
 
+      // Verify the token with Google
+      const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${token}`);
+      if (!tokenInfoRes.ok) {
+        return new Response(JSON.stringify({ error: "Invalid Google token" }), { status: 401, headers: corsHeaders });
+      }
+      
+      const tokenInfo = await tokenInfoRes.json();
+      if (tokenInfo.email !== userEmail) {
+        return new Response(JSON.stringify({ error: "Token email does not match requested email" }), { status: 403, headers: corsHeaders });
+      }
+      
+      // CRITICAL SECURITY FIX: Ensure the token was generated for OUR Extension Client ID
+      if (tokenInfo.aud !== expectedClientId) {
+        return new Response(JSON.stringify({ error: "Unauthorized Client ID" }), { status: 403, headers: corsHeaders });
+      }
+
       // CRITICAL SECURITY FIX 2: Rate Limiting
-      // Protect your Brevo quota from malicious draining using Cloudflare KV
+      // Protect your Brevo quota from malicious draining using Cloudflare KV.
+      // Only authenticated, matching-token requests consume quota.
       const now = Date.now();
       const dateStr = new Date(now).toISOString().split('T')[0];
       const dailyKey = `daily_${dateStr}`;
@@ -159,28 +185,11 @@ export default {
         return new Response(JSON.stringify({ error: "Rate limit exceeded for this IP. Please wait 1 minute." }), { status: 429, headers: corsHeaders });
       }
 
-      // Write to KV immediately to prevent concurrent requests bypassing the check
-      ctx.waitUntil(Promise.all([
+      await Promise.all([
          env.RATE_LIMIT_STORE.put(dailyKey, (dailyCount + 1).toString(), { expirationTtl: 86400 }),
          env.RATE_LIMIT_STORE.put(`email_${userEmail}`, "1", { expirationTtl: 60 }),
          env.RATE_LIMIT_STORE.put(`ip_${ip}`, (ipCount + 1).toString(), { expirationTtl: 60 })
-      ]));
-
-      // Verify the token with Google
-      const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${token}`);
-      if (!tokenInfoRes.ok) {
-        return new Response(JSON.stringify({ error: "Invalid Google token" }), { status: 401, headers: corsHeaders });
-      }
-      
-      const tokenInfo = await tokenInfoRes.json();
-      if (tokenInfo.email !== userEmail) {
-        return new Response(JSON.stringify({ error: "Token email does not match requested email" }), { status: 403, headers: corsHeaders });
-      }
-      
-      // CRITICAL SECURITY FIX: Ensure the token was generated for OUR Extension Client ID
-      if (tokenInfo.aud !== "650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com") {
-        return new Response(JSON.stringify({ error: "Unauthorized Client ID" }), { status: 403, headers: corsHeaders });
-      }
+      ]);
 
       // Retrieve all available keys configured in Cloudflare secrets
       const apiKeys = [

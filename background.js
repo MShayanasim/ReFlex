@@ -26,6 +26,55 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 let diffQueue = Promise.resolve();
+let emailQueueChain = Promise.resolve();
+let emailSendInFlight = false;
+
+function storageLocalGet(keys) {
+    return new Promise((resolve) => {
+        chrome.storage.local.get(keys, (res) => {
+            if (chrome.runtime.lastError) {
+                console.warn('ReFlex Background: Storage read failed.', chrome.runtime.lastError.message);
+                resolve({});
+                return;
+            }
+            resolve(res || {});
+        });
+    });
+}
+
+function storageLocalSet(values) {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.set(values, () => {
+            if (chrome.runtime.lastError) {
+                console.warn('ReFlex Background: Storage write failed.', chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(true);
+        });
+    });
+}
+
+function storageLocalRemove(keys) {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.remove(keys, () => {
+            if (chrome.runtime.lastError) {
+                console.warn('ReFlex Background: Storage remove failed.', chrome.runtime.lastError.message);
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(true);
+        });
+    });
+}
+
+function runEmailQueueMutation(task) {
+    const nextMutation = emailQueueChain.catch(() => {}).then(task);
+    emailQueueChain = nextMutation.catch((e) => {
+        console.error('ReFlex Background: Email queue mutation failed.', e);
+    });
+    return nextMutation;
+}
 
 // We can also allow the popup or content script to trigger actions
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -39,15 +88,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         queueEmailUpdates(request.updates);
         sendResponse({ status: "queued" });
     } else if (request.action === 'markAsRead') {
-        processMarkAsRead(request.uiKeys, request.queueStrings);
-        sendResponse({ status: "processed" });
+        processMarkAsRead(request.uiKeys, request.queueStrings)
+            .then(() => sendResponse({ status: "processed" }))
+            .catch((e) => {
+                console.error("ReFlex Background: Mark as read failed", e);
+                sendResponse({ status: "failed" });
+            });
+        return true;
     } else if (request.action === 'processDiff') {
         diffQueue = diffQueue.then(() => {
             return new Promise((resolveNext) => {
                 try {
                     _robustDiffAndSave(request.marksData, (changedKeysSet) => {
                         if (changedKeysSet && changedKeysSet.size > 0) {
-                            chrome.tabs.query({ url: "*://*.nu.edu.pk/*" }, (tabs) => {
+                            chrome.tabs.query({ url: "*://flexstudent.nu.edu.pk/*" }, (tabs) => {
                                 tabs.forEach(tab => {
                                     chrome.tabs.sendMessage(tab.id, { action: 'NEW_MARKS_DATA' }).catch(() => {});
                                 });
@@ -68,22 +122,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 function processMarkAsRead(uiKeys, queueStrings) {
+    uiKeys = Array.isArray(uiKeys) ? uiKeys : [];
+    queueStrings = Array.isArray(queueStrings) ? queueStrings : [];
+
     // 1. Remove from Email Queue
-    chrome.storage.local.get(['pending_email_queue'], (res) => {
+    const queueRemoval = runEmailQueueMutation(async () => {
+        const res = await storageLocalGet(['pending_email_queue']);
         if (res.pending_email_queue && res.pending_email_queue.length > 0) {
             const newQueue = res.pending_email_queue.filter(item => !queueStrings.includes(item));
             
             if (newQueue.length === 0) {
                 // If queue is now empty, delete it and the timer
-                chrome.storage.local.remove(['pending_email_queue', 'email_queue_start_time']);
+                await storageLocalRemove(['pending_email_queue', 'email_queue_start_time']);
             } else if (newQueue.length !== res.pending_email_queue.length) {
-                chrome.storage.local.set({ pending_email_queue: newQueue });
+                await storageLocalSet({ pending_email_queue: newQueue });
             }
         }
     });
 
     // 2. Remove Badges from UI
-    diffQueue = diffQueue.then(() => {
+    const badgeRemoval = diffQueue = diffQueue.then(() => {
         return new Promise((resolve) => {
             _readStorage(allStored => {
                 let badges = allStored.ff_badge_timestamps || {};
@@ -114,12 +172,18 @@ function processMarkAsRead(uiKeys, queueStrings) {
             });
         });
     });
+
+    return Promise.all([queueRemoval, badgeRemoval]);
 }
 
 function queueEmailUpdates(updatesArray) {
-    chrome.storage.local.get(['pending_email_queue', 'email_queue_start_time'], (res) => {
+    if (!Array.isArray(updatesArray) || updatesArray.length === 0) return;
+
+    runEmailQueueMutation(async () => {
+        const res = await storageLocalGet(['pending_email_queue', 'email_queue_start_time']);
         let queue = res.pending_email_queue || [];
         let startTime = res.email_queue_start_time || Date.now();
+        const wasEmpty = queue.length === 0;
         
         let added = false;
         let queueSet = new Set(queue);
@@ -132,27 +196,42 @@ function queueEmailUpdates(updatesArray) {
         });
 
         if (added) {
-            chrome.storage.local.set({ 
+            await storageLocalSet({ 
                 pending_email_queue: queue,
-                email_queue_start_time: queue.length === updatesArray.length ? Date.now() : startTime 
+                email_queue_start_time: wasEmpty ? Date.now() : startTime 
             });
         }
     });
 }
 
-function processEmailQueue() {
-    chrome.storage.local.get(['pending_email_queue', 'email_queue_start_time', 'userEmail'], (res) => {
-        if (!res.userEmail) return;
-        if (res.pending_email_queue && res.pending_email_queue.length > 0) {
-            // Check if 45 minutes have passed since the first item was queued
-            if (Date.now() - res.email_queue_start_time >= 45 * 60 * 1000) {
-                const messageStr = res.pending_email_queue.join('<br>');
-                
-                // Pass the queue items to sendEmailSecurely so it can delete them on success
-                sendEmailSecurely(res.userEmail, messageStr);
+async function processEmailQueue() {
+    if (emailSendInFlight) return;
+    emailSendInFlight = true;
+
+    try {
+        let emailJob = null;
+        await runEmailQueueMutation(async () => {
+            const res = await storageLocalGet(['pending_email_queue', 'email_queue_start_time', 'userEmail']);
+            if (!res.userEmail) return;
+            if (res.pending_email_queue && res.pending_email_queue.length > 0) {
+                // Check if 45 minutes have passed since the first item was queued
+                if (Date.now() - res.email_queue_start_time >= 45 * 60 * 1000) {
+                    const itemsToSend = [...res.pending_email_queue];
+                    emailJob = {
+                        userEmail: res.userEmail,
+                        messageStr: itemsToSend.join('<br>'),
+                        itemsToSend
+                    };
+                }
             }
-        }
-    });
+        });
+
+        if (!emailJob) return;
+
+        await sendEmailSecurely(emailJob.userEmail, emailJob.messageStr, emailJob.itemsToSend);
+    } finally {
+        emailSendInFlight = false;
+    }
 }
 
 const OAUTH_CLIENT_ID = '650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com';
@@ -210,8 +289,12 @@ function getValidToken(callback) {
     });
 }
 
-function sendEmailSecurely(userEmail, messageStr) {
-    getValidToken((token) => {
+function getValidTokenPromise() {
+    return new Promise((resolve) => getValidToken(resolve));
+}
+
+async function sendEmailSecurely(userEmail, messageStr, itemsSent) {
+    const token = await getValidTokenPromise();
         if (!token) {
             console.error("ReFlex Background: Could not get auth token for email. User might be logged out.");
             chrome.notifications.create({
@@ -220,17 +303,19 @@ function sendEmailSecurely(userEmail, messageStr) {
                 title: 'ReFlex Email Alert',
                 message: 'Failed to send email: Your Google session expired. Please open the ReFlex popup to log in again.'
             });
-            return;
+            return { ok: false, reason: 'missing-token' };
         }
         
-        fetch('https://reflex-notifier.shayanasim-dev.workers.dev/api/email', {
+    try {
+        const r = await fetch('https://reflex-notifier.shayanasim-dev.workers.dev/api/email', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
             },
             body: JSON.stringify({ email: userEmail, message: messageStr })
-        }).then(async r => {
+        });
+
             if (!r.ok) {
                 const errText = await r.text();
                 console.error("ReFlex Background: Email Failed!", errText);
@@ -240,13 +325,32 @@ function sendEmailSecurely(userEmail, messageStr) {
                     title: 'ReFlex Email Failed',
                     message: 'Server error: ' + errText
                 });
+                return { ok: false, reason: 'server-error' };
             } else {
                 console.log("ReFlex Background: Email Sent successfully!");
-                // Clear the queue ONLY after successful delivery!
-                chrome.storage.local.remove(['pending_email_queue', 'email_queue_start_time']);
+                // Clear ONLY the items we just successfully sent, protecting new items that arrived during the fetch
+                await runEmailQueueMutation(async () => {
+                    const qRes = await storageLocalGet(['pending_email_queue']);
+                    let currentQueue = qRes.pending_email_queue || [];
+                    let sentSet = new Set(itemsSent);
+                    let remainingQueue = currentQueue.filter(item => !sentSet.has(item));
+                    
+                    if (remainingQueue.length > 0) {
+                        // Keep new items that arrived, but reset the timer so they wait their own 45 mins
+                        await storageLocalSet({ 
+                            pending_email_queue: remainingQueue,
+                            email_queue_start_time: Date.now()
+                        });
+                    } else {
+                        await storageLocalRemove(['pending_email_queue', 'email_queue_start_time']);
+                    }
+                });
+                return { ok: true };
             }
-        }).catch(e => console.error(e));
-    });
+    } catch (e) {
+        console.error(e);
+        return { ok: false, reason: 'network-error' };
+    }
 }
 
 async function checkGradesInBackground() {
@@ -268,7 +372,7 @@ async function checkGradesInBackground() {
                 return new Promise((resolveNext) => {
                     _robustDiffAndSave(marksData, (changedKeysSet) => {
                         if (changedKeysSet && changedKeysSet.size > 0) {
-                            chrome.tabs.query({ url: "*://*.nu.edu.pk/*" }, (tabs) => {
+                            chrome.tabs.query({ url: "*://flexstudent.nu.edu.pk/*" }, (tabs) => {
                                 tabs.forEach(tab => {
                                     chrome.tabs.sendMessage(tab.id, { action: 'NEW_MARKS_DATA' }).catch(() => {});
                                 });
@@ -454,7 +558,11 @@ function _robustDiffAndSave(marksData, callback) {
                         const uiKey = `${course.courseName}||${cat.name}||${item.label}`;
                         
                         if (!(snapKey in oldCourse)) {
-                            badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
+                            // Only trigger a NEW badge/email if the item actually has grades.
+                            // Empty placeholders (-/20) shouldn't spam the user.
+                            if (item.obtained !== null) {
+                                badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
+                            }
                         } else {
                             let oldValStr = oldCourse[snapKey];
                             let [oldObtained, oldTotal] = oldValStr.split('|');

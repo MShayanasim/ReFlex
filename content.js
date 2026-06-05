@@ -40,10 +40,6 @@
     }
 })();
 
-// Listen for cross-tab storage changes
-chrome.storage.onChanged.addListener((changes, namespace) => {
-    // Intentionally empty.
-});
 
 // Listener for messages from popup and background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -60,15 +56,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const url = location.href.toLowerCase();
         if (!url.includes('marks')) return; // Context Awareness
 
+        // Remove any stale iframe so a fresh one can be created
         let iframe = document.getElementById('ff-sync-iframe');
-        if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id = 'ff-sync-iframe';
-            iframe.style.display = 'none';
-            // Use ff_sync=1 to tell runMarks.js to run in sync mode
-            iframe.src = '/Student/Marks?ff_sync=1';
-            document.body.appendChild(iframe);
-        }
+        if (iframe) iframe.remove();
+
+        iframe = document.createElement('iframe');
+        iframe.id = 'ff-sync-iframe';
+        iframe.style.display = 'none';
+        // Use ff_sync=1 to tell runMarks.js to run in sync mode
+        iframe.src = '/Student/Marks?ff_sync=1';
+        document.body.appendChild(iframe);
+
+        // Safety net: remove the iframe after 30s if postMessage never fires
+        // (e.g., Flex session expired and iframe loaded a login page)
+        setTimeout(() => {
+            const stale = document.getElementById('ff-sync-iframe');
+            if (stale) stale.remove();
+        }, 30000);
     }
 });
 
@@ -452,7 +456,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
                         <span class="ff-updates-drawer-row-item">${esc(itemName)} (${esc(upd.catName)})</span>
                     </div>
                     <div class="ff-updates-drawer-row-right" style="display: flex; align-items: center; gap: 8px;">
-                        <span class="ff-updates-drawer-row-score">${obtainedStr} / ${upd.item.total}</span>
+                        <span class="ff-updates-drawer-row-score">${esc(String(obtainedStr))} / ${esc(String(upd.item.total))}</span>
                         <span class="${badgeClass}">${upd.type}</span>
                         <button class="ff-mark-read-btn" data-course-key="${esc(upd.courseKey)}" data-queue-string="${esc(upd.queueString)}" title="Mark as Read" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; font-weight: bold; font-size: 14px; transition: color 0.2s;">✓</button>
                     </div>
@@ -494,11 +498,20 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
     // ─ Mark As Read Listeners ──────────────────────────────────────────
     const markAllBtn = drawer.querySelector('#ff-mark-all-read');
     if (markAllBtn) {
-        markAllBtn.addEventListener('click', (e) => {
+        markAllBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); // prevent row click
             const uiKeys = recentUpdates.map(u => u.courseKey);
             const queueStrings = recentUpdates.map(u => u.queueString);
-            chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys, queueStrings });
+            markAllBtn.disabled = true;
+            try {
+                const response = await chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys, queueStrings });
+                if (!response || response.status !== 'processed') throw new Error('Mark as read failed');
+            } catch (err) {
+                markAllBtn.disabled = false;
+                markAllBtn.style.color = 'var(--danger-color)';
+                setTimeout(() => markAllBtn.style.color = 'var(--text-muted)', 2000);
+                return;
+            }
             
             // Instantly clear the UI visually without reloading
             drawer.querySelector('.ff-updates-list').innerHTML = `
@@ -513,11 +526,20 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
     }
 
     drawer.querySelectorAll('.ff-mark-read-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.stopPropagation(); // prevent row click
             const uiKey = btn.getAttribute('data-course-key');
             const qStr = btn.getAttribute('data-queue-string');
-            chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys: [uiKey], queueStrings: [qStr] });
+            btn.disabled = true;
+            try {
+                const response = await chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys: [uiKey], queueStrings: [qStr] });
+                if (!response || response.status !== 'processed') throw new Error('Mark as read failed');
+            } catch (err) {
+                btn.disabled = false;
+                btn.style.color = 'var(--danger-color)';
+                setTimeout(() => btn.style.color = 'var(--text-muted)', 2000);
+                return;
+            }
             
             // Instantly remove this specific row visually
             const row = btn.closest('.ff-updates-drawer-row');
@@ -677,7 +699,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         course.categories.forEach(cat => {
             cat.items.forEach(item => {
                 if (item.obtained !== null && item.obtained !== undefined) {
-                    const contrib = item.weight > 0 ? (item.obtained / item.total) * item.weight : 0;
+                    const contrib = (item.weight > 0 && item.total > 0) ? (item.obtained / item.total) * item.weight : 0;
                     totalObtained += contrib;
                     totalWeight += item.weight;
                 }
@@ -926,9 +948,9 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
                         ${isItemBelow ? '<i class="ff-warn-icon">!</i>' : ''}
                         ${badge}${esc(itemName)}
                     </span>
-                    <span class="ff-item-weightage" title="Contributes ${item.weight}% to final grade" style="flex: 0 0 35px; text-align: center;">${item.weight}%</span>
-                    <span class="ff-item-val" style="flex: 0 0 65px; text-align: right;">${obtainedStr} / ${item.total}</span>
-                    <span class="ff-item-avg" style="flex: 0 0 55px; text-align: right;">${item.avg !== null && item.avg !== undefined ? `avg ${item.avg.toFixed ? item.avg.toFixed(1) : item.avg}` : ''}</span>
+                    <span class="ff-item-weightage" title="Contributes ${esc(String(item.weight))}% to final grade" style="flex: 0 0 35px; text-align: center;">${esc(String(item.weight))}%</span>
+                    <span class="ff-item-val" style="flex: 0 0 65px; text-align: right;">${esc(String(obtainedStr))} / ${esc(String(item.total))}</span>
+                    <span class="ff-item-avg" style="flex: 0 0 55px; text-align: right;">${item.avg !== null && item.avg !== undefined ? `avg ${esc(String(item.avg.toFixed ? item.avg.toFixed(1) : item.avg))}` : ''}</span>
                     <span style="flex: 0 0 100px; text-align: right;">${minMaxHtml}</span>
                 `;
                 itemsTable.appendChild(row);
@@ -997,9 +1019,6 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
 window.ffRunMarks = (isSilent) => { if (typeof runMarks === 'function') runMarks(isSilent); };
 
 window.updateGrandTotalCardsInDOM = (marksData) => {
-    // Only escape HTML safely
-    const esc = str => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    
     marksData.forEach(course => {
         if (!course.grandTotal) return;
         let gtCard = document.querySelector(`.ff-grand-total-card[data-course-name="${course.courseName.replace(/"/g, '\\"')}"]`);
@@ -1783,7 +1802,7 @@ function renderGpaPlannerUI(marksData, sidebar) {
         sidebar.innerHTML = `
             <div class="ff-gpa-header">
                 <h3>GPA Planner</h3>
-                <span class="ff-gpa-close" onclick="document.getElementById('ff-gpa-sidebar').style.transform='translateX(100%)'; setTimeout(()=>document.getElementById('ff-gpa-sidebar').remove(),300); window._gpaSidebarOpen=false;">&times;</span>
+                <span class="ff-gpa-close" id="ff-gpa-empty-close-btn">&times;</span>
             </div>
             <div class="ff-gpa-empty">
                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
@@ -1791,6 +1810,14 @@ function renderGpaPlannerUI(marksData, sidebar) {
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">Visit the <b>Transcript</b> page once to load credit hours and enable the GPA Planner.</p>
             </div>
         `;
+        const emptyCloseBtn = sidebar.querySelector('#ff-gpa-empty-close-btn');
+        if (emptyCloseBtn) {
+            emptyCloseBtn.addEventListener('click', () => {
+                sidebar.style.transform = 'translateX(100%)';
+                setTimeout(() => sidebar.remove(), 300);
+                _gpaSidebarOpen = false;
+            });
+        }
         return;
     }
 

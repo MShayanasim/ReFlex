@@ -126,10 +126,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Logout logic
     logoutBtn.addEventListener('click', () => {
-        chrome.storage.local.get(['authToken'], (result) => {
+        chrome.storage.local.get(['authToken', 'refreshToken'], (result) => {
+            // Revoke access token
             if (result.authToken) {
                 fetch(`https://accounts.google.com/o/oauth2/revoke?token=${result.authToken}`)
-                    .catch((e) => console.warn("ReFlex: Token revocation failed.", e));
+                    .catch((e) => console.warn("ReFlex: Access token revocation failed.", e));
+            }
+            // Revoke refresh token so it can't be reused
+            if (result.refreshToken) {
+                fetch(`https://accounts.google.com/o/oauth2/revoke?token=${result.refreshToken}`)
+                    .catch((e) => console.warn("ReFlex: Refresh token revocation failed.", e));
             }
             chrome.storage.local.remove(['userEmail', 'isLoggedIn', 'authToken', 'tokenExpiry', 'refreshToken', 'pending_email_queue', 'email_queue_start_time'], () => {
                 updateLoginUI(null);
