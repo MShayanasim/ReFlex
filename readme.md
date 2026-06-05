@@ -67,17 +67,17 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 
 #### ⚡ Performance & Privacy
 - **Minimal Dependencies** — No React. No jQuery. ReFlex is 100% pure vanilla JavaScript with only bundled fonts, ensuring near-instant loading.
-- **Fully Local Data** — Your marks snapshot and settings are stored in Chrome's local extension storage. Nothing is ever sent to any external server. Your academic data stays entirely yours.
+- **Fully Local Data & Stateless Sync** — Your marks snapshot and UI settings are stored in Chrome's local extension storage. If you enable Email Alerts, your email address and grade summaries are routed securely through a 100% stateless Cloudflare Worker to deliver the email. Nothing is ever saved to a database. Your academic data stays yours.
 - **Manifest V3 Compliant** — Built to the latest Chrome Extension security standard with a minimal, honest permission set.
 
 ---
 
 ### 🛡️ Permissions Used
-- `identity` & `identity.email` — Securely fetches your Google email address to send you grade notification alerts (no passwords accessed).
+- `identity` — Securely fetches your Google email address to send you grade notification alerts (no passwords accessed).
 - `alarms` & `offscreen` — Allows the extension to silently wake up in the background and check for grade updates without opening visible browser tabs.
 - `storage` — Saves your marks snapshot locally so it can detect NEW and UPDATED grades, and saves your UI preferences.
-- `activeTab` — Allows the extension to interact with the currently active portal tab without requiring broad history permissions.
-- `host_permissions` — Scoped exclusively to `*://*.nu.edu.pk/*` to inject the UI securely on university pages only.
+- `notifications` — Displays native browser alerts if your Google login expires or an email fails to send.
+- `host_permissions` — Scoped strictly to `*://flexstudent.nu.edu.pk/*` to inject the UI securely on the university portal only.
 
 ---
 
