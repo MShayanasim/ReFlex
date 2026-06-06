@@ -256,6 +256,12 @@
             if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, new Set());
         }
     }
+
+    // ── START GRAND TOTAL LAZY-LOADER POLLER ──
+    // Must be inside runMarks() so it's re-created after each SPA navigation
+    // (tearDown() in ff-observer.js clears the poller on every nav change)
+    startGtPoller();
+
         } catch (e) {
             if (e.message && e.message.includes('Extension context invalidated')) {
                 console.warn('ReFlex updated in the background. Auto-refreshing to restore context.');
@@ -273,14 +279,21 @@
     // --- END OF runMarks FUNCTION ---
 
     // ── FALLBACK POLLER FOR ANGULAR'S GRAND TOTAL LAZY LOADING ──
-    if (!window.ffGtPoller) {
+    // Extracted into a named function so runMarks() can re-start it after
+    // tearDown() clears the interval during SPA navigation.
+    function startGtPoller() {
+        if (window.ffGtPoller) return; // already running
+
+        // Reset timing state so the 2.5s Angular-ready wait starts fresh
+        window.ffAngularReady = false;
+        window.ffStartTime = Date.now();
+
         window.ffGtPoller = setInterval(() => {
             if (!location.href.toLowerCase().includes('marks')) return;
             
             // ── FORCE LAZY LOAD: Automatically click the native accordion to fetch data ──
             // Angular takes a moment to bind click listeners. Give it 2.5 seconds to settle.
             if (!window.ffAngularReady) {
-                if (!window.ffStartTime) window.ffStartTime = Date.now();
                 if (Date.now() - window.ffStartTime > 2500) {
                     window.ffAngularReady = true;
                 } else {
@@ -357,5 +370,8 @@
             }
         }, 800); // Check every 800ms 
     }
+
+    // Start the poller immediately on first load too
+    startGtPoller();
 
 })();
