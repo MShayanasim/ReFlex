@@ -54,9 +54,11 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 - **Show Absents Only Filter** — A dedicated button above each table lets you instantly filter to show only the dates you were absent, saving you from scrolling through long tables.
 
 #### 📜 Transcript Page
+- **PDF Transcript Export** — Download beautifully styled, professional PDF records of specific semesters or your entire academic history with a single click using the browser's native print engine.
 - **Semester Tab Navigation** — Navigate through your entire academic history with a sleek horizontal tab bar, separated cleanly by semester.
 - **SGPA & CGPA Rings** — Every semester tab features beautifully styled visual rings displaying your Semester GPA and Cumulative GPA at a glance.
 - **Clean Structured Layout** — The native Transcript page gets the full ReFlex treatment with a structured, readable card layout, clearly showing credit weights and point contributions.
+- **Inline Course GPA** — See the precise point value (e.g. 4.00) for every course right next to its letter grade.
 - **Global Credit-Hour Cache** — ReFlex reads your transcript data and stores credit-hour information locally, which it then uses to power accurate GPA calculations and attendance heuristics across the portal.
 
 #### 🧭 Navigation & Global Controls

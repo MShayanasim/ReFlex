@@ -97,7 +97,6 @@
         }
     });
 
-    if (semesters.length === 0) return;
     if (window.renderTranscriptDashboard) window.renderTranscriptDashboard(semesters);
     }
     
