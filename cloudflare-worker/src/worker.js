@@ -172,7 +172,7 @@ export default {
       ]);
 
       const dailyCount = parseInt(dailyCountStr || "0", 10);
-      if (dailyCount >= 900) {
+      if (dailyCount >= 600) {
         return new Response(JSON.stringify({ error: "Global daily email limit reached to protect quotas. Try again tomorrow." }), { status: 429, headers: corsHeaders });
       }
 
@@ -192,34 +192,35 @@ export default {
       ]);
 
       // Retrieve all available keys configured in Cloudflare secrets
-      const apiKeys = [
-        env.BREVO_API_KEY, 
-        env.BREVO_API_KEY_2,
-        env.BREVO_API_KEY_3,
-        env.BREVO_API_KEY_4
-      ].filter(Boolean); // Filters out any undefined keys
+      // Map each key to its specific verified sender email to prevent account linking
+      const apiAccounts = [
+        { name: "BREVO_API_KEY_1", key: env.BREVO_API_KEY,   email: "shayanasim.dev@gmail.com" },
+        { name: "BREVO_API_KEY_2", key: env.BREVO_API_KEY_2, email: "shaneasim979@gmail.com" },
+        { name: "BREVO_API_KEY_3", key: env.BREVO_API_KEY_3, email: "shaneasim171@gmail.com" }, // Update with your 3rd verified email
+        { name: "BREVO_API_KEY_4", key: env.BREVO_API_KEY_4, email: "shayanasim.dev@gmail.com" }
+      ].filter(account => Boolean(account.key)); // Filters out any undefined keys
 
-      if (apiKeys.length === 0) {
+      if (apiAccounts.length === 0) {
         return new Response(JSON.stringify({ error: "Server missing Brevo API keys" }), { status: 500, headers: corsHeaders });
       }
 
       let emailResult;
       let res;
-      let usedKeyIndex = 0;
+      let usedKeyName = "";
 
       // Attempt to send the email, falling back to the next key if quota/rate limits hit
-      for (let i = 0; i < apiKeys.length; i++) {
+      for (let i = 0; i < apiAccounts.length; i++) {
         res = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
           headers: {
-            "api-key": apiKeys[i],
+            "api-key": apiAccounts[i].key,
             "Content-Type": "application/json",
             "Accept": "application/json"
           },
           body: JSON.stringify({
             sender: {
               name: "ReFlex Notifications",
-              email: "shayanasim.dev@gmail.com"
+              email: apiAccounts[i].email
             },
             to: [{ email: userEmail }],
             subject: "ReFlex: Grade/Portal Update Detected!",
@@ -259,7 +260,7 @@ export default {
 
         // If the request was successful, break the loop
         if (res.ok) {
-          usedKeyIndex = i + 1; // 1-indexed for logging clarity
+          usedKeyName = apiAccounts[i].name;
           break;
         }
 
@@ -280,7 +281,7 @@ export default {
         });
       }
 
-      return new Response(JSON.stringify({ success: true, key_used: `BREVO_API_KEY_${usedKeyIndex}`, brevo: emailResult }), {
+      return new Response(JSON.stringify({ success: true, key_used: usedKeyName, brevo: emailResult }), {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders }
       });

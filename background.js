@@ -22,6 +22,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         
         // 2. Attempt to fetch new grades from the background
         checkGradesInBackground();
+    } else if (alarm.name === "emailQueueCheck") {
+        processEmailQueue();
     }
 });
 
@@ -78,8 +80,76 @@ function runEmailQueueMutation(task) {
 
 // We can also allow the popup or content script to trigger actions
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'triggerBackgroundCheck') {
+    if (request.action === 'silentBackgroundSync') {
+        const now = Date.now();
+        chrome.storage.local.get(['ff_last_silent_sync'], (res) => {
+            const lastSync = res.ff_last_silent_sync || 0;
+            if (now - lastSync > 15000) { // 15 seconds throttle
+                chrome.storage.local.set({ ff_last_silent_sync: now });
+                checkGradesInBackground();
+            }
+        });
+        sendResponse({ status: "started_or_throttled" });
+    } else if (request.action === 'triggerBackgroundCheck') {
         checkGradesInBackground();
+        sendResponse({ status: "started" });
+    } else if (request.action === 'syncSpecificSemester') {
+        if (self.isManualSyncing) {
+            sendResponse({ status: "locked" });
+            return;
+        }
+        self.isManualSyncing = true;
+        const sId = request.semId;
+        (async () => {
+            try {
+                const reqTokenObj = await chrome.storage.local.get('ff_request_token');
+                const token = reqTokenObj.ff_request_token || '';
+                
+                const postBody = new URLSearchParams();
+                if (sId !== 'unknown') {
+                    postBody.append('SemId', sId);
+                }
+                if (token) postBody.append('__RequestVerificationToken', token);
+                
+                const url = (sId === 'unknown') ? 'https://flexstudent.nu.edu.pk/Student/Marks' : 'https://flexstudent.nu.edu.pk/Student/StudentMarks';
+                const options = {
+                    method: sId === 'unknown' ? 'GET' : 'POST',
+                    headers: sId === 'unknown' ? undefined : { 'Content-Type': 'application/x-www-form-urlencoded' }
+                };
+                if (sId !== 'unknown') options.body = postBody.toString();
+                
+                const res = await fetch(url, options);
+                if (!res.ok) throw new Error('Fetch failed');
+                const html = await res.text();
+                const result = await parseHtmlOffscreen(html);
+                const marksData = result?.marksData || result || [];
+                
+                diffQueue = diffQueue.then(() => {
+                    return new Promise((resolveNext) => {
+                        _robustDiffAndSave(marksData, sId, request.semName || sId, (changedKeysSet, allUpdates, hasRealChanges) => {
+                            if (sender && sender.tab) {
+                                chrome.tabs.sendMessage(sender.tab.id, {
+                                    action: 'SYNC_COMPLETED',
+                                    semId: sId,
+                                    marksData: marksData
+                                }).catch(() => {});
+                            }
+                            self.isManualSyncing = false;
+                            resolveNext();
+                        });
+                    });
+                }).catch(e => {
+                    console.error('ReFlex Background: diffQueue recovered from syncSpecificSemester error:', e);
+                    self.isManualSyncing = false;
+                });
+            } catch(e) {
+                console.error("ReFlex Sync Error", e);
+                if (sender && sender.tab) {
+                    chrome.tabs.sendMessage(sender.tab.id, { action: 'SYNC_COMPLETED', error: true }).catch(() => {});
+                }
+                self.isManualSyncing = false;
+            }
+        })();
         sendResponse({ status: "started" });
     } else if (request.action === 'triggerEmailQueue') {
         processEmailQueue();
@@ -88,40 +158,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         queueEmailUpdates(request.updates);
         sendResponse({ status: "queued" });
     } else if (request.action === 'markAsRead') {
-        processMarkAsRead(request.uiKeys, request.queueStrings)
+        processMarkAsRead(request.uiKeys, request.queueStrings, request.semesterId || 'unknown')
             .then(() => sendResponse({ status: "processed" }))
             .catch((e) => {
                 console.error("ReFlex Background: Mark as read failed", e);
                 sendResponse({ status: "failed" });
             });
         return true;
-    } else if (request.action === 'processDiff') {
+        } else if (request.action === 'processDiff') {
+        const semId = request.semesterId || 'unknown';
+        const semName = request.semesterName || semId;
         diffQueue = diffQueue.then(() => {
             return new Promise((resolveNext) => {
                 try {
-                    _robustDiffAndSave(request.marksData, (changedKeysSet) => {
-                        if (changedKeysSet && changedKeysSet.size > 0) {
-                            chrome.tabs.query({ url: "*://flexstudent.nu.edu.pk/*" }, (tabs) => {
-                                tabs.forEach(tab => {
-                                    chrome.tabs.sendMessage(tab.id, { action: 'NEW_MARKS_DATA' }).catch(() => {});
-                                });
-                            });
-                        }
-                        sendResponse({ changedKeys: Array.from(changedKeysSet) });
+                    _robustDiffAndSave(request.marksData, semId, semName, (changedKeysSet, allUpdates) => {
+                        sendResponse({ changedKeys: Array.from(changedKeysSet), allUpdates });
                         resolveNext();
                     });
                 } catch (e) {
                     console.error("ReFlex Background: Diff failed", e);
-                    sendResponse({ changedKeys: [] });
+                    sendResponse({ changedKeys: [], allUpdates: [] });
                     resolveNext();
                 }
             });
-        });
+        }).catch(e => console.error("ReFlex Background: diffQueue recovered from error:", e));
         return true; // Keep channel open for async
+    } else if (request.action === 'PARSE_SEMESTER_HTML') {
+        // Content script fetched a semester's HTML — parse it via offscreen
+        parseHtmlOffscreen(request.html).then(result => {
+            sendResponse(result || { marksData: null, semesterInfo: null });
+        }).catch(e => {
+            console.error('ReFlex Background: Semester HTML parse failed', e);
+            sendResponse({ marksData: null, semesterInfo: null });
+        });
+        return true;
     }
 });
 
-function processMarkAsRead(uiKeys, queueStrings) {
+function processMarkAsRead(uiKeys, queueStrings, semesterId) {
     uiKeys = Array.isArray(uiKeys) ? uiKeys : [];
     queueStrings = Array.isArray(queueStrings) ? queueStrings : [];
 
@@ -140,7 +214,8 @@ function processMarkAsRead(uiKeys, queueStrings) {
         }
     });
 
-    // 2. Remove Badges from UI
+    // 2. Remove Badges from UI (prefix keys with semester)
+    const badgeSemPrefix = semesterId + '::';
     const badgeRemoval = diffQueue = diffQueue.then(() => {
         return new Promise((resolve) => {
             _readStorage(allStored => {
@@ -148,7 +223,12 @@ function processMarkAsRead(uiKeys, queueStrings) {
                 let changed = false;
                 
                 uiKeys.forEach(key => {
-                    if (badges[key]) {
+                    // Try with semester prefix first, then raw key for backward compat
+                    const prefixedKey = badgeSemPrefix + key;
+                    if (badges[prefixedKey]) {
+                        delete badges[prefixedKey];
+                        changed = true;
+                    } else if (badges[key]) {
                         delete badges[key];
                         changed = true;
                     }
@@ -171,7 +251,7 @@ function processMarkAsRead(uiKeys, queueStrings) {
                 }
             });
         });
-    });
+    }).catch(e => { console.error('ReFlex Background: diffQueue recovered from error:', e); return Promise.resolve(); });
 
     return Promise.all([queueRemoval, badgeRemoval]);
 }
@@ -200,6 +280,9 @@ function queueEmailUpdates(updatesArray) {
                 pending_email_queue: queue,
                 email_queue_start_time: wasEmpty ? Date.now() : startTime 
             });
+            if (wasEmpty) {
+                chrome.alarms.create('emailQueueCheck', { delayInMinutes: 30 });
+            }
         }
     });
 }
@@ -214,8 +297,8 @@ async function processEmailQueue() {
             const res = await storageLocalGet(['pending_email_queue', 'email_queue_start_time', 'userEmail']);
             if (!res.userEmail) return;
             if (res.pending_email_queue && res.pending_email_queue.length > 0) {
-                // Check if 45 minutes have passed since the first item was queued
-                if (Date.now() - res.email_queue_start_time >= 45 * 60 * 1000) {
+                // Check if 30 minutes have passed since the first item was queued (with a 60-second alarm buffer)
+                if (Date.now() - res.email_queue_start_time >= (30 * 60 * 1000) - 60000) {
                     const itemsToSend = [...res.pending_email_queue];
                     emailJob = {
                         userEmail: res.userEmail,
@@ -297,11 +380,17 @@ async function sendEmailSecurely(userEmail, messageStr, itemsSent) {
     const token = await getValidTokenPromise();
         if (!token) {
             console.error("ReFlex Background: Could not get auth token for email. User might be logged out.");
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'reflex-icon-128.png',
-                title: 'ReFlex Email Alert',
-                message: 'Failed to send email: Your Google session expired. Please open the ReFlex popup to log in again.'
+            chrome.storage.local.get(['email_auth_notified_time'], (res) => {
+                const lastNotified = res.email_auth_notified_time || 0;
+                if (Date.now() - lastNotified > 12 * 60 * 60 * 1000) { // 12 hours cooldown
+                    chrome.storage.local.set({ email_auth_notified_time: Date.now() });
+                    chrome.notifications.create({
+                        type: 'basic',
+                        iconUrl: 'reflex-icon-128.png',
+                        title: 'ReFlex Email Alert',
+                        message: 'Failed to send email: Your Google session expired. Please open the ReFlex popup to log in again.'
+                    });
+                }
             });
             return { ok: false, reason: 'missing-token' };
         }
@@ -336,7 +425,7 @@ async function sendEmailSecurely(userEmail, messageStr, itemsSent) {
                     let remainingQueue = currentQueue.filter(item => !sentSet.has(item));
                     
                     if (remainingQueue.length > 0) {
-                        // Keep new items that arrived, but reset the timer so they wait their own 45 mins
+                        // Keep new items that arrived, but reset the timer so they wait their own 2 mins
                         await storageLocalSet({ 
                             pending_email_queue: remainingQueue,
                             email_queue_start_time: Date.now()
@@ -360,35 +449,85 @@ async function checkGradesInBackground() {
 
         const html = await res.text();
         
+        let requestToken = '';
+        const tokenMatch = html.match(/<input[^>]+name="__RequestVerificationToken"[^>]+value="([^"]+)"/i) || html.match(/<input[^>]+value="([^"]+)"[^>]+name="__RequestVerificationToken"/i);
+        if (tokenMatch && tokenMatch[1]) {
+            requestToken = tokenMatch[1];
+        }
+        
         // If the session expired, it redirects to the login page (or shows recaptcha)
         if (html.toLowerCase().includes('<title>login</title>') || html.toLowerCase().includes('recaptcha')) {
             console.log("ReFlex Background: Session expired. Waiting for user to log in again.");
             return;
         }
 
-        const marksData = await parseHtmlOffscreen(html);
-        if (marksData && marksData.length > 0) {
+        const result = await parseHtmlOffscreen(html);
+        const marksData = result?.marksData || result;  // Handle both new {marksData, semesterInfo} and legacy array format
+        const semesterInfo = result?.semesterInfo || null;
+        const defaultSemId = semesterInfo?.selectedId || 'unknown';
+        const defaultSemName = semesterInfo?.selectedName || 'Current Semester';
+
+        const processSemester = (mData, sId, sName) => {
+            if (!mData || mData.length === 0) {
+                console.log('ReFlex Background: Semester', sId, 'has no data. Skipping diff.');
+                return;
+            }
             diffQueue = diffQueue.then(() => {
                 return new Promise((resolveNext) => {
-                    _robustDiffAndSave(marksData, (changedKeysSet) => {
-                        if (changedKeysSet && changedKeysSet.size > 0) {
+                    _robustDiffAndSave(mData, sId, sName, (changedKeysSet, allUpdates, hasRealChanges) => {
+                        if (hasRealChanges) {
                             chrome.tabs.query({ url: "*://flexstudent.nu.edu.pk/*" }, (tabs) => {
                                 tabs.forEach(tab => {
-                                    chrome.tabs.sendMessage(tab.id, { action: 'NEW_MARKS_DATA' }).catch(() => {});
+                                    chrome.tabs.sendMessage(tab.id, { action: 'NEW_MARKS_DATA', semId: sId, marksData: mData }).catch(() => {});
                                 });
                             });
                         }
                         resolveNext();
                     });
                 });
-            });
-        }
+            }).catch(e => console.error('ReFlex Background: diffQueue recovered from error:', e));
+        };
 
-        // Wait, emails are now processed independently in the alarm listener!
+        // 1. Process the default semester
+        processSemester(marksData, defaultSemId, defaultSemName);
+
+        // 2. Process the previous semester ONLY if the current one is completely empty (no courses).
+        // This optimizes performance because previous semesters don't get updates once the new one starts.
+        if (semesterInfo && semesterInfo.options && (!marksData || marksData.length === 0)) {
+            const defaultIdx = semesterInfo.options.findIndex(opt => opt.id === defaultSemId);
+            if (defaultIdx !== -1 && defaultIdx + 1 < semesterInfo.options.length) {
+                const prevSemOpt = semesterInfo.options[defaultIdx + 1];
+                try {
+                    const postBody = new URLSearchParams();
+                    postBody.append('SemId', prevSemOpt.id);
+                    if (requestToken) {
+                        postBody.append('__RequestVerificationToken', requestToken);
+                    }
+                    
+                    const oldRes = await fetch('https://flexstudent.nu.edu.pk/Student/StudentMarks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: postBody.toString()
+                    });
+                    
+                    if (oldRes.ok) {
+                        const oldHtml = await oldRes.text();
+                        const oldResult = await parseHtmlOffscreen(oldHtml);
+                        const oldMarksData = oldResult?.marksData || oldResult;
+                        processSemester(oldMarksData, prevSemOpt.id, prevSemOpt.name);
+                    }
+                } catch (err) {
+                    console.error("ReFlex Background: Failed fetching older semester", prevSemOpt.id, err);
+                }
+            }
+        }
     } catch (e) {
         console.error("ReFlex Background Error:", e);
     }
 }
+
+// Expose to global scope for manual debugging in the console
+self.checkGradesInBackground = checkGradesInBackground;
 
 let offscreenSetupPromise = null;
 let offscreenLockCount = 0;
@@ -431,7 +570,7 @@ async function parseHtmlOffscreen(html) {
             }
             
             if (response && response.success) {
-                resolve(response.marksData);
+                resolve({ marksData: response.marksData, semesterInfo: response.semesterInfo || null });
             } else {
                 resolve(null);
             }
@@ -439,7 +578,7 @@ async function parseHtmlOffscreen(html) {
     });
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const SYNC_ITEM_LIMIT = 7500;
 
 function buildSnapshotKey(courseName, catName, itemLabel) {
@@ -513,10 +652,12 @@ function _trimForSync(badges) {
     return trimmed;
 }
 
-function _robustDiffAndSave(marksData, callback) {
+function _robustDiffAndSave(marksData, semesterId, semesterName, callback) {
     _readStorage(localStored => {
         _migrateSnapsFromSync(localStored, allStored => {
-            if (allStored.ff_schema_version !== SCHEMA_VERSION) {
+            try {
+                if (allStored.ff_schema_version !== SCHEMA_VERSION) {
+                // Schema upgrade (v2→v3): wipe all old semester-blind snapshots
                 const keysToWipe = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX));
                 keysToWipe.push('ff_badge_timestamps', 'ff_schema_version');
                 chrome.storage.local.remove(keysToWipe);
@@ -526,24 +667,32 @@ function _robustDiffAndSave(marksData, callback) {
                 allStored = {};
             }
 
-            const hasExistingSnaps = Object.keys(allStored).some(k => k.startsWith(SNAP_PREFIX));
+            // Semester-scoped prefix: ff_snap_{semId}__{courseName}
+            const semPrefix = SNAP_PREFIX + semesterId + '__';
+
+            const hasExistingSnaps = Object.keys(allStored).some(k => k.startsWith(semPrefix));
             const isFirstRun = !hasExistingSnaps;
 
             if (isFirstRun) {
-                try { chrome.storage.sync.remove('ff_badge_timestamps', () => { if (chrome.runtime.lastError) {} }); } catch (e) {}
+                // Don't clear ALL badges — only clear badges for THIS semester on first run
+                // Other semesters' badges are preserved
             }
 
             const localWrites = { ff_schema_version: SCHEMA_VERSION };
-            const activeKeys = new Set(marksData.map(c => SNAP_PREFIX + c.courseName));
+            // Only manage keys within THIS semester (don't touch other semesters)
+            const activeKeys = new Set(marksData.map(c => semPrefix + c.courseName));
 
-            const keysToRemove = Object.keys(allStored).filter(k => k.startsWith(SNAP_PREFIX) && !activeKeys.has(k));
+            const keysToRemove = Object.keys(allStored).filter(k => k.startsWith(semPrefix) && !activeKeys.has(k));
             if (keysToRemove.length > 0) chrome.storage.local.remove(keysToRemove);
 
-            const badgeTimestamps = isFirstRun ? {} : (allStored.ff_badge_timestamps || {});
+            const badgeTimestamps = allStored.ff_badge_timestamps || {};
             const now = Date.now();
 
+            // Badge key prefix for this semester
+            const badgeSemPrefix = semesterId + '::';
+
             marksData.forEach(course => {
-                const storeKey  = SNAP_PREFIX + course.courseName;
+                const storeKey  = semPrefix + course.courseName;
                 const oldCourse = allStored[storeKey] || {};
                 const newCourse = {};
 
@@ -555,13 +704,13 @@ function _robustDiffAndSave(marksData, callback) {
 
                         if (isFirstRun) return;
 
-                        const uiKey = `${course.courseName}||${cat.name}||${item.label}`;
+                        const uiKey = `${badgeSemPrefix}${course.courseName}||${cat.name}||${item.label}`;
                         
                         if (!(snapKey in oldCourse)) {
                             // Only trigger a NEW badge/email if the item actually has grades.
                             // Empty placeholders (-/20) shouldn't spam the user.
                             if (item.obtained !== null) {
-                                badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
+                                badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now, semName: semesterName || semesterId };
                             }
                         } else {
                             let oldValStr = oldCourse[snapKey];
@@ -571,9 +720,9 @@ function _robustDiffAndSave(marksData, callback) {
 
                             if (normalizedOldVal !== val) {
                                 if (oldObtained === 'null' && item.obtained !== null) {
-                                    badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now };
+                                    badgeTimestamps[uiKey] = { type: 'NEW', timestamp: now, semName: semesterName || semesterId };
                                 } else {
-                                    badgeTimestamps[uiKey] = { type: 'UPDATED', timestamp: now };
+                                    badgeTimestamps[uiKey] = { type: 'UPDATED', timestamp: now, semName: semesterName || semesterId };
                                 }
                             }
                         }
@@ -582,16 +731,19 @@ function _robustDiffAndSave(marksData, callback) {
                 localWrites[storeKey] = newCourse;
             });
 
+            // Build valid keys for THIS semester only
             const validUiKeys = new Set();
             marksData.forEach(course => {
                 course.categories.forEach(cat => {
                     cat.items.forEach(item => {
-                        validUiKeys.add(`${course.courseName}||${cat.name}||${item.label}`);
+                        validUiKeys.add(`${badgeSemPrefix}${course.courseName}||${cat.name}||${item.label}`);
                     });
                 });
             });
 
+            // Only prune badges belonging to THIS semester
             for (const uiKey in badgeTimestamps) {
+                if (!uiKey.startsWith(badgeSemPrefix)) continue; // Leave other semesters' badges alone
                 if (!validUiKeys.has(uiKey)) {
                     delete badgeTimestamps[uiKey];
                 } else if (now - badgeTimestamps[uiKey].timestamp > BADGE_EXPIRY_MS) {
@@ -601,11 +753,58 @@ function _robustDiffAndSave(marksData, callback) {
 
             const changed = new Set();
             const newUpdates = [];
+            const allUpdates = [];
+            
             for (const uiKey in badgeTimestamps) {
-                changed.add(uiKey + '|' + badgeTimestamps[uiKey].type);
-                if (badgeTimestamps[uiKey].timestamp === now) {
-                    newUpdates.push(`${uiKey.replace(/\|\|/g, ' > ')} (${badgeTimestamps[uiKey].type})`);
+                // If it belongs to THIS semester, build 'changed' set for legacy callback compatibility
+                if (uiKey.startsWith(badgeSemPrefix)) {
+                    const displayKey = uiKey.substring(badgeSemPrefix.length);
+                    changed.add(displayKey + '|' + badgeTimestamps[uiKey].type);
+                    if (badgeTimestamps[uiKey].timestamp === now) {
+                        const sName = badgeTimestamps[uiKey].semName || semesterName || semesterId;
+                        newUpdates.push(`[${sName}] ${displayKey.replace(/\|\|/g, ' > ')} (${badgeTimestamps[uiKey].type})`);
+                    }
                 }
+                
+                // Build allUpdates for all semesters
+                const firstColon = uiKey.indexOf('::');
+                if (firstColon === -1) continue; // Skip malformed
+                const semId = uiKey.substring(0, firstColon);
+                const rest = uiKey.substring(firstColon + 2);
+                const parts = rest.split('||');
+                if (parts.length !== 3) continue;
+                
+                const courseName = parts[0];
+                const catName = parts[1];
+                const itemLabel = parts[2];
+                
+                const snapKey = `${SNAP_PREFIX}${semId}__${courseName}`;
+                // Fallback to localWrites for just-created snapshots, or allStored for older ones
+                const courseObj = localWrites[snapKey] || allStored[snapKey] || {};
+                const itemSnapKey = `${catName}||${itemLabel}`;
+                const valStr = courseObj[itemSnapKey] || "";
+                let obtained = null, total = null;
+                if (valStr) {
+                    const valParts = valStr.split('|');
+                    obtained = valParts[0] === 'null' ? null : parseFloat(valParts[0]);
+                    total = valParts[1] === 'undefined' ? null : parseFloat(valParts[1]);
+                }
+                
+                const codeMatch = courseName.match(/^([A-Z]{2,4}\d{4})/i);
+                const courseCode = codeMatch ? codeMatch[1] : courseName.substring(0, 7);
+                const sName = badgeTimestamps[uiKey].semName || (uiKey.startsWith(badgeSemPrefix) ? (semesterName || semesterId) : semId);
+                
+                allUpdates.push({
+                    semId,
+                    semName: sName,
+                    courseCode,
+                    fullCourseName: courseName,
+                    catName,
+                    item: { label: itemLabel, obtained, total },
+                    type: badgeTimestamps[uiKey].type,
+                    courseKey: uiKey,
+                    queueString: `[${sName}] ${rest.replace(/\|\|/g, ' > ')} (${badgeTimestamps[uiKey].type})`
+                });
             }
 
             if (newUpdates.length > 0 && !isFirstRun) {
@@ -626,11 +825,17 @@ function _robustDiffAndSave(marksData, callback) {
                     if (chrome.runtime.lastError) {
                         chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
                     }
-                    callback(changed);
+                    callback(changed, allUpdates, newUpdates.length > 0);
                 });
-            } catch (e) {
-                chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
-                callback(changed);
+                } catch (e) {
+                    try {
+                        chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
+                    } catch(err){}
+                    callback(changed, allUpdates, newUpdates.length > 0);
+                }
+            } catch (syncError) {
+                console.error("ReFlex Background: Ghost freeze caught in _robustDiffAndSave", syncError);
+                callback(new Set(), [], false);
             }
         });
     });

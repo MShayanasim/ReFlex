@@ -1,6 +1,6 @@
 # ReFlex - Privacy Policy
 
-**Last updated:** June 5, 2026
+**Last updated:** June 12, 2026
 
 ## Overview
 
@@ -56,6 +56,7 @@ ReFlex uses Chrome extension storage to persist:
 | Google email address | Sends optional email notifications | `local` |
 | OAuth access token, refresh token, and expiry | Keeps optional email notifications authenticated | `local` |
 | Pending email queue | Holds grade-update summaries until they are sent successfully | `local` |
+| Email auth cooldown timestamp | Prevents notification spam if your token expires | `local` |
 | GPA Planner projections | Saves local target-grade selections | `local` |
 | Transcript credit-hour cache | Powers GPA Planner and attendance helpers | `local` |
 | Tutorial status | Avoids replaying the first-time tutorial unnecessarily | `local` |

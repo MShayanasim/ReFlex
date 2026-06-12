@@ -71,6 +71,10 @@ function startScanWatcher() {
 }
 
 function checkTablesReady(url) {
+    if (url.includes('marks')) {
+        const hasEmptyAlert = document.querySelector('.m-alert--outline.alert-danger');
+        if (hasEmptyAlert && hasEmptyAlert.textContent.includes('No Record Found')) return true;
+    }
     const tables = document.querySelectorAll('table');
     if (tables.length === 0) return false;
 
@@ -236,6 +240,10 @@ function handleNavChange() {
     lastUrl    = url;
     lastRunKey = key;
 
+    if (key !== 'marks') {
+        sessionStorage.removeItem('ff_manual_sem');
+    }
+
     if (!key) {
         // Navigated away to a normal page — lift the veil immediately and tear down
         document.documentElement.classList.remove('ff-veil-native');
@@ -305,12 +313,13 @@ function buildSnapshotKey(courseName, catName, itemLabel) {
     return `${catName}||${itemLabel}`;
 }
 
-function diffAndSave(marksData, callback) {
-    chrome.runtime.sendMessage({ action: 'processDiff', marksData }, (response) => {
+function diffAndSave(marksData, semesterId, callback) {
+    const semName = document.querySelector('select#SemId option:checked')?.textContent?.trim() || semesterId;
+    chrome.runtime.sendMessage({ action: 'processDiff', marksData, semesterId, semesterName: semName }, (response) => {
         if (callback && response && response.changedKeys) {
-            callback(new Set(response.changedKeys));
+            callback(new Set(response.changedKeys), response.allUpdates || []);
         } else if (callback) {
-            callback(new Set());
+            callback(new Set(), []);
         }
     });
 }

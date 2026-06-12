@@ -1459,6 +1459,7 @@ html.ff-dark .input-group-addon {
 
 /* ── Grand Final Marks Card ──────────────────────────────── */
 .ff-grand-total-card {
+    grid-column: 1 / -1;
     margin-top: 32px;
     background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
     border-radius: 16px;
@@ -1678,4 +1679,335 @@ html.ff-dark .ff-gpa-select {
 html.ff-dark .ff-gpa-select:focus {
     border-color: #818cf8 !important;
     box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.25) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* ── SEMESTER SWITCHING ──────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Semester Selector Wrapper ──────────────────────────── */
+.ff-semester-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+/* ── Semester Selector Button ──────────────────────────── */
+.ff-semester-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 14px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    color: var(--text-color, #1e293b);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    outline: none;
+    user-select: none;
+}
+.ff-semester-selector:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+.ff-semester-selector:focus-visible {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+}
+.ff-semester-selector .ff-semester-chevron {
+    font-size: 0.6rem;
+    transition: transform 0.2s ease;
+    color: var(--text-muted, #94a3b8);
+}
+.ff-semester-selector.open .ff-semester-chevron {
+    transform: rotate(180deg);
+}
+
+/* ── Semester Dropdown Panel ───────────────────────────── */
+.ff-semester-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 220px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.04);
+    z-index: 100;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 6px 0;
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.ff-semester-dropdown.open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+/* Sleek scrollbar for dropdown */
+.ff-semester-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+.ff-semester-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+.ff-semester-dropdown::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+.ff-semester-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* ── Semester Option Items ─────────────────────────────── */
+.ff-semester-option {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-color, #475569);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+}
+.ff-semester-option:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+.ff-semester-option.active {
+    background: #4f46e5;
+    color: #ffffff;
+    font-weight: 600;
+}
+.ff-semester-option.active:hover {
+    background: #4338ca;
+    color: #ffffff;
+}
+
+/* ── Semester Info Banner (no-assessments fallback) ─────── */
+.ff-semester-notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(79,70,229,0.08);
+    border: 1px solid rgba(79,70,229,0.2);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #4f46e5;
+    margin-bottom: 20px;
+    transition: opacity 0.25s ease;
+}
+.ff-semester-notice-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.ff-semester-notice-text {
+    flex: 1;
+    line-height: 1.4;
+}
+.ff-semester-notice-btn {
+    flex-shrink: 0;
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(79,70,229,0.3);
+    background: rgba(79,70,229,0.1);
+    color: #4f46e5;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.ff-semester-notice-btn:hover {
+    background: rgba(79,70,229,0.18);
+    border-color: rgba(79,70,229,0.45);
+}
+.ff-semester-notice-dismiss {
+    flex-shrink: 0;
+    font-size: 1rem;
+    color: rgba(79,70,229,0.5);
+    cursor: pointer;
+    transition: color 0.15s;
+    line-height: 1;
+}
+.ff-semester-notice-dismiss:hover {
+    color: #4f46e5;
+}
+
+/* ── Empty State (new students / no data) ──────────────── */
+.ff-marks-empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.ff-marks-empty-icon {
+    font-size: 3rem;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+.ff-marks-empty-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color, #1e293b);
+}
+.ff-marks-empty-desc {
+    font-size: 0.9rem;
+    color: var(--text-muted, #94a3b8);
+    max-width: 320px;
+    line-height: 1.5;
+}
+.ff-marks-empty-btn {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    background: #4f46e5;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.25);
+}
+.ff-marks-empty-btn:hover {
+    background: #4338ca;
+    box-shadow: 0 6px 16px rgba(79,70,229,0.35);
+}
+
+/* ── Loading Skeleton ──────────────────────────────────── */
+@keyframes ff-skeleton-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+
+.ff-semester-loading {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px 0;
+}
+.ff-skeleton-bar {
+    background: var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    animation: ff-skeleton-pulse 1.5s ease-in-out infinite;
+}
+.ff-skeleton-bar--lg {
+    height: 28px;
+    width: 65%;
+}
+.ff-skeleton-bar--md {
+    height: 18px;
+    width: 85%;
+}
+.ff-skeleton-bar--sm {
+    height: 14px;
+    width: 50%;
+}
+.ff-skeleton-bar--full {
+    height: 120px;
+    width: 100%;
+    border-radius: 10px;
+}
+
+/* ── Dark Mode: Semester Switching ──────────────────────── */
+html.ff-dark .ff-semester-selector {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+}
+html.ff-dark .ff-semester-selector:hover {
+    background: #263447 !important;
+    border-color: rgba(255,255,255,0.14) !important;
+    color: #f1f5f9 !important;
+}
+html.ff-dark .ff-semester-selector:focus-visible {
+    border-color: #818cf8 !important;
+    box-shadow: 0 0 0 3px rgba(129,140,248,0.25) !important;
+}
+html.ff-dark .ff-semester-selector .ff-semester-chevron {
+    color: #64748b !important;
+}
+
+html.ff-dark .ff-semester-dropdown {
+    background: #1e293b !important;
+    border-color: rgba(255,255,255,0.07) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2) !important;
+}
+html.ff-dark .ff-semester-dropdown::-webkit-scrollbar-thumb {
+    background: #475569 !important;
+}
+html.ff-dark .ff-semester-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #64748b !important;
+}
+
+html.ff-dark .ff-semester-option {
+    color: #cbd5e1 !important;
+}
+html.ff-dark .ff-semester-option:hover {
+    background: rgba(255,255,255,0.06) !important;
+    color: #f1f5f9 !important;
+}
+html.ff-dark .ff-semester-option.active {
+    background: #4f46e5 !important;
+    color: #ffffff !important;
+}
+html.ff-dark .ff-semester-option.active:hover {
+    background: #4338ca !important;
+}
+
+html.ff-dark .ff-semester-notice {
+    background: rgba(79,70,229,0.12) !important;
+    border-color: rgba(79,70,229,0.25) !important;
+    color: #818cf8 !important;
+}
+html.ff-dark .ff-semester-notice-btn {
+    background: rgba(79,70,229,0.18) !important;
+    border-color: rgba(79,70,229,0.35) !important;
+    color: #818cf8 !important;
+}
+html.ff-dark .ff-semester-notice-btn:hover {
+    background: rgba(79,70,229,0.28) !important;
+}
+html.ff-dark .ff-semester-notice-dismiss {
+    color: rgba(129,140,248,0.5) !important;
+}
+html.ff-dark .ff-semester-notice-dismiss:hover {
+    color: #818cf8 !important;
+}
+
+html.ff-dark .ff-marks-empty-title {
+    color: #f1f5f9 !important;
+}
+html.ff-dark .ff-marks-empty-desc {
+    color: #64748b !important;
+}
+html.ff-dark .ff-marks-empty-btn {
+    background: #4f46e5 !important;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.35) !important;
+}
+html.ff-dark .ff-marks-empty-btn:hover {
+    background: #4338ca !important;
+}
+
+html.ff-dark .ff-skeleton-bar {
+    background: rgba(255,255,255,0.07) !important;
 }

@@ -2,7 +2,7 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAknxP0CQwxachPFMfUcoKqP1o3J3Vn6p9dPCZIUU7bpHamglxSprJFpWaYAb1jxDe+9LolaLzUSaVGyZ9Lq02f/2hN33xBmUovYvwx1GbzwxbkRmhjbJuv8LJs6eGruRQavVLRiScWpGtsHO/pC6a1wz5DDHtp5K5XsFryRFkD51le3p1lIuipbM8ZewHvA4FcxqSNau4jxYxc9nk2ykDKvk5pnXbOQv2VncXi3WNYeTW67yC6S4RUUIaP8PCV42jxYsJ2nSvy5QfBE6QFnqORs/1ETDlVQFsJ4gmvZv4tb8WkopNll0NSiBnUDyC7WFFaeO2Qypqq9nH4QMkzEffHwIDAQAB",
   "manifest_version": 3,
   "name": "ReFlex",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "minimum_chrome_version": "109",
   "description": "Redesigns the FAST-NUCES Flex portal with a premium dashboard, dark mode, GPA projections, and live grade change tracking.",
   "permissions": ["storage", "identity", "alarms", "offscreen", "notifications"],

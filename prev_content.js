@@ -1,15 +1,14 @@
-// content.js — ReFlex dashboard renderer + topbar controls
+// content.js ΓÇö ReFlex dashboard renderer + topbar controls
 // Depends on: ff-observer.js (ffDiffAndSave), runMarks.js (runMarks), runTranscript.js (runTranscript)
 
 (function() {
     'use strict';
-    // ══════════════════════════════════════════════════════════════════════════
-    // 1. STATE INIT — Apply persisted theme & UI preference before any render
-    // ══════════════════════════════════════════════════════════════════════════
+    // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+    // 1. STATE INIT ΓÇö Apply persisted theme & UI preference before any render
+    // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
     let ffUIEnabled = true; // Default: ReFlex UI on
     let _outsideClickHandler = null; // Hoisted ref for drawer outside-click listener
-    let _semDropdownCloseHandler = null; // Hoisted ref for semester dropdown listener
 
 (function initState() {
     try {
@@ -18,7 +17,7 @@
                 console.warn('ReFlex: Could not load settings.', chrome.runtime.lastError.message);
                 return;
             }
-            // Theme — apply immediately to avoid flash
+            // Theme ΓÇö apply immediately to avoid flash
             if (data.ffTheme === 'dark') {
                 document.documentElement.classList.add('ff-dark');
                 window.dispatchEvent(new CustomEvent('ff-theme-changed', { detail: { isDark: true } }));
@@ -42,7 +41,7 @@
 })();
 
 
-// Listener for messages from popup
+// Listener for messages from popup and background
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'REPLAY_TUTORIAL') {
         const url = location.href.toLowerCase();
@@ -53,51 +52,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
         }
         sendResponse({ success: true });
-    } else if (request.action === 'NEW_MARKS_DATA' || request.action === 'SYNC_COMPLETED') {
-        if (request.action === 'SYNC_COMPLETED') {
-            const syncBtnSvg = document.querySelector('#ff-sync-marks-btn svg');
-            const syncBtn = document.querySelector('#ff-sync-marks-btn');
-            if (syncBtnSvg) syncBtnSvg.style.transform = `rotate(${(parseInt(syncBtnSvg.dataset.rot||0) + 0)}deg)`; // Ensure it's static
-            if (syncBtn) {
-                syncBtn.style.pointerEvents = 'auto';
-                syncBtn.style.opacity = '1';
-            }
-        }
+    } else if (request.action === 'NEW_MARKS_DATA') {
         const url = location.href.toLowerCase();
-        if (url.includes('marks')) {
-            if (request.semId && request.semId === window._ffCurrentSemesterId && request.marksData) {
-                // Background worker sent fresh data for the active semester
-                // The raw background fetch lacks the lazy-loaded Grand Totals, so we graft them from the live DOM!
-                document.querySelectorAll('tr.GrandtotalColumn').forEach(gtRow => {
-                    if (!gtRow.textContent.trim().match(/\d/)) return;
-                    const gtContainer = gtRow.closest('[id$="-Grand_Total_Marks"]') || gtRow.closest('table')?.closest('[id$="-Grand_Total_Marks"]');
-                    if (gtContainer) {
-                        const code = gtContainer.id.split('-')[0].trim();
-                        const targetCourse = request.marksData.find(c => c.courseName.includes(code));
-                        if (targetCourse) {
-                            const tds = Array.from(gtRow.querySelectorAll('td'));
-                            const extractVal = (className, idx) => {
-                                const el = gtRow.querySelector('.' + className);
-                                const text = (el || tds[idx])?.textContent.trim() || '';
-                                const match = text.match(/[-+]?[0-9]*\.?[0-9]+/);
-                                return match ? parseFloat(match[0]) : null;
-                            };
-                            targetCourse.grandTotal = {
-                                totalMarks: extractVal('GrandtotalColMarks', 0),
-                                obtainedMarks: extractVal('GrandtotalObtMarks', 1),
-                                classAverage: extractVal('GrandtotalClassAvg', 2),
-                                min: extractVal('GrandtotalClassMin', 3),
-                                max: extractVal('GrandtotalClassMax', 4),
-                                stdDev: extractVal('GrandtotalClassStdDev', 5) || extractVal('GrandtotalClassStd', 5)
-                            };
-                        }
-                    }
-                });
-                
-                // We hot-swap it without reloading the page!
-                window._ffBackgroundMarksCache = request.marksData;
-            }
-            if (window.ffRunMarks) window.ffRunMarks(false);
+        if (!url.includes('marks')) return; // Context Awareness
+
+        // Remove any stale iframe so a fresh one can be created
+        let iframe = document.getElementById('ff-sync-iframe');
+        if (iframe) iframe.remove();
+
+        iframe = document.createElement('iframe');
+        iframe.id = 'ff-sync-iframe';
+        iframe.style.display = 'none';
+        // Use ff_sync=1 to tell runMarks.js to run in sync mode
+        iframe.src = '/Student/Marks?ff_sync=1';
+        document.body.appendChild(iframe);
+
+        // Safety net: remove the iframe after 30s if postMessage never fires
+        // (e.g., Flex session expired and iframe loaded a login page)
+        setTimeout(() => {
+            const stale = document.getElementById('ff-sync-iframe');
+            if (stale) stale.remove();
+        }, 30000);
+    }
+});
+
+// Catch extracted data from the hidden iframe
+window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+    if (event.data && event.data.type === 'FF_SYNC_COMPLETE') {
+        const iframe = document.getElementById('ff-sync-iframe');
+        if (iframe) iframe.remove();
+        
+        const marksData = event.data.marksData;
+        window._ffBackgroundMarksCache = marksData; // Stale DOM Override
+        
+        let activeCourseIdx = 0;
+        const activeTab = document.querySelector('.ff-course-tabs .ff-tab.active');
+        if (activeTab) {
+            const tabs = Array.from(document.querySelectorAll('.ff-course-tabs .ff-tab'));
+            activeCourseIdx = tabs.indexOf(activeTab);
+        }
+        
+        let drawerOpen = false;
+        const drawer = document.querySelector('.ff-updates-drawer');
+        if (drawer && drawer.classList.contains('open')) {
+            drawerOpen = true;
+        }
+
+        if (window.renderMarksDashboard) {
+            window.renderMarksDashboard(marksData, new Set(), { activeCourseIdx, drawerOpen });
         }
     }
 });
@@ -116,9 +119,9 @@ function startVisibilityAwarePolling() {
 startVisibilityAwarePolling();
 
 
-// ══════════════════════════════════════════════════════════════════════════
-// 2. TOPBAR TOGGLE — UI switch + dark/light theme switch injected into nav
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+// 2. TOPBAR TOGGLE ΓÇö UI switch + dark/light theme switch injected into nav
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
 function ffInjectTopbarToggle() {
     if (document.getElementById('ff-topbar-controls')) return;
@@ -162,7 +165,7 @@ function ffInjectTopbarToggle() {
         'padding:0 10px', 'list-style:none'
     ].join(';');
 
-    // ── UI Toggle (ReFlex on / Original off) ────────────────────────────
+    // ΓöÇΓöÇ UI Toggle (ReFlex on / Original off) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const sw = document.createElement('div');
     sw.className = 'ff-switch' + (ffUIEnabled ? ' on' : '');
     sw.title = ffUIEnabled ? 'Switch to Original UI' : 'Switch to ReFlex UI';
@@ -202,16 +205,16 @@ function ffInjectTopbarToggle() {
         }
     });
 
-    // ── Theme Toggle (☀️ / 🌙) ───────────────────────────────────────────
+    // ΓöÇΓöÇ Theme Toggle (ΓÿÇ∩╕Å / ≡ƒîÖ) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const isDark = document.documentElement.classList.contains('ff-dark');
     const themeBtn = document.createElement('div');
     themeBtn.className = 'ff-theme-switch' + (isDark ? ' dark' : '');
     themeBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-    themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? '☀️' : '🌙'}</span>`;
+    themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? 'ΓÿÇ∩╕Å' : '≡ƒîÖ'}</span>`;
         themeBtn.addEventListener('click', () => {
         const nowDark = document.documentElement.classList.toggle('ff-dark');
         themeBtn.classList.toggle('dark', nowDark);
-        themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? '☀️' : '🌙';
+        themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? 'ΓÿÇ∩╕Å' : '≡ƒîÖ';
         themeBtn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
         
         // ONLY the storage call goes in the try-catch
@@ -231,9 +234,9 @@ function ffInjectTopbarToggle() {
 }
 window.ffInjectTopbarToggle = ffInjectTopbarToggle;
 
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 // 2.5. LOGIN PAGE TOGGLE & RECAPTCHA THEMING
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
 function ffInjectLoginToggle() {
     if (!window.location.pathname.toLowerCase().includes('/login')) return;
@@ -244,12 +247,12 @@ function ffInjectLoginToggle() {
     themeBtn.id = 'ff-login-theme-toggle';
     themeBtn.className = 'ff-theme-switch ff-login-theme-switch' + (isDark ? ' dark' : '');
     themeBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-    themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? '☀️' : '🌙'}</span>`;
+    themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? 'ΓÿÇ∩╕Å' : '≡ƒîÖ'}</span>`;
     
     themeBtn.addEventListener('click', () => {
         const nowDark = document.documentElement.classList.toggle('ff-dark');
         themeBtn.classList.toggle('dark', nowDark);
-        themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? '☀️' : '🌙';
+        themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? 'ΓÿÇ∩╕Å' : '≡ƒîÖ';
         themeBtn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
         
         try {
@@ -309,22 +312,22 @@ function ffInjectRecaptchaThemer() {
 }
 window.ffInjectRecaptchaThemer = ffInjectRecaptchaThemer;
 
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 // 3. SHARED HELPERS
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
-// HTML escape helper — prevents XSS from DOM-sourced strings
+// HTML escape helper ΓÇö prevents XSS from DOM-sourced strings
 const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 function esc(str) {
     return String(str).replace(/[&<>"']/g, c => _ESC_MAP[c]);
 }
 
-// Stable ID helper — strips characters invalid in HTML id attributes
+// Stable ID helper ΓÇö strips characters invalid in HTML id attributes
 function safeId(str) {
     return String(str).replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-// Grade → colour map
+// Grade ΓåÆ colour map
 const GRADE_COLOURS = {
     'A+': { bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)',  text: '#065f46' },
     'A':  { bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)',  text: '#065f46' },
@@ -362,8 +365,7 @@ const GPA_TIERS = [
     { label: 'F',   gpa: 0.00, pct: 0  },
 ];
 function pctToGrade(pct) {
-    const rounded = Math.round(pct);
-    return GPA_TIERS.find(t => rounded >= t.pct) || GPA_TIERS[GPA_TIERS.length - 1];
+    return GPA_TIERS.find(t => pct >= t.pct) || GPA_TIERS[GPA_TIERS.length - 1];
 }
 
 function mountRoot() {
@@ -378,7 +380,7 @@ function mountRoot() {
 }
 
 function hideNative() {
-    document.querySelectorAll('.m-portlet, .m-subheader, .m-alert').forEach(el => {
+    document.querySelectorAll('.m-portlet, .m-subheader').forEach(el => {
         if (!el.closest('#ff-root')) {
             el.dataset.ffHidden = '1';
             el.style.display = 'none';
@@ -397,28 +399,9 @@ window.ffTearDownMarks = function() {
     }
 };
 
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 // 4. MARKS DASHBOARD
-// ══════════════════════════════════════════════════════════════════════════
-
-// ─ Empty State Helper ─────────────────────────────────────────────────
-function showMarksEmptyState(root, semesterName) {
-    const existing = root.querySelector('.ff-marks-empty-state');
-    if (existing) existing.remove();
-
-    const empty = document.createElement('div');
-    empty.className = 'ff-marks-empty-state';
-    empty.innerHTML = `
-        <div style="font-size: 3rem; margin-bottom: 16px;">📚</div>
-        <h3 style="margin: 0 0 8px 0; font-size: 1.3rem; font-weight: 600; color: var(--text-color);">
-            No assessments available${semesterName ? ' for ' + esc(semesterName) : ''}
-        </h3>
-        <p style="margin: 0 0 20px 0; color: var(--text-muted); font-size: 0.95rem; max-width: 400px;">
-            Your marks will appear here once your instructors upload assessments. Check back soon!
-        </p>
-    `;
-    root.appendChild(empty);
-}
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
 function renderMarksDashboard(marksData, changedKeys, options = {}) {
     if (!ffUIEnabled) return;
@@ -428,45 +411,30 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         document.removeEventListener('click', _outsideClickHandler);
         _outsideClickHandler = null;
     }
-    if (_semDropdownCloseHandler) {
-        document.removeEventListener('click', _semDropdownCloseHandler);
-        _semDropdownCloseHandler = null;
-    }
 
     hideNative();
 
     const root = mountRoot();
 
-    // ─ Recent Updates Drawer ──────────────────────────────────────────
-    let recentUpdates = [];
-    if (options.allUpdates) {
-        recentUpdates = options.allUpdates.map(upd => {
-            const courseIdx = marksData.findIndex(c => c.courseName === upd.fullCourseName);
-            return { ...upd, courseIdx };
-        });
-    } else {
-        marksData.forEach((course, courseIdx) => {
-            const codeMatch = course.courseName.match(/^([A-Z]{2,4}\d{4})/i);
-            const courseCode = codeMatch ? codeMatch[1] : course.courseName.substring(0, 7);
+    // ΓöÇ Recent Updates Drawer ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    const recentUpdates = [];
+    marksData.forEach((course, courseIdx) => {
+        const codeMatch = course.courseName.match(/^([A-Z]{2,4}\d{4})/i);
+        const courseCode = codeMatch ? codeMatch[1] : course.courseName.substring(0, 7);
 
-            course.categories.forEach(cat => {
-                cat.items.forEach(item => {
-                    const courseKey = `${course.courseName}||${cat.name}||${item.label}`;
-                    if (changedKeys && changedKeys.has(courseKey + '|NEW')) {
-                        const qStr = `${courseKey.replace(/\|\|/g, ' > ')} (NEW)`;
-                        const semId = window._ffCurrentSemesterId || 'unknown';
-                        const semName = (window._ffSemesterInfo && window._ffSemesterInfo.selectedName) || semId;
-                        recentUpdates.push({ semId, semName, courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'NEW', courseKey: `${semId}::${courseKey}`, queueString: `[${semName}] ${qStr}` });
-                    } else if (changedKeys && changedKeys.has(courseKey + '|UPDATED')) {
-                        const qStr = `${courseKey.replace(/\|\|/g, ' > ')} (UPDATED)`;
-                        const semId = window._ffCurrentSemesterId || 'unknown';
-                        const semName = (window._ffSemesterInfo && window._ffSemesterInfo.selectedName) || semId;
-                        recentUpdates.push({ semId, semName, courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'UPDATED', courseKey: `${semId}::${courseKey}`, queueString: `[${semName}] ${qStr}` });
-                    }
-                });
+        course.categories.forEach(cat => {
+            cat.items.forEach(item => {
+                const courseKey = `${course.courseName}||${cat.name}||${item.label}`;
+                if (changedKeys && changedKeys.has(courseKey + '|NEW')) {
+                    const qStr = `${courseKey.replace(/\|\|/g, ' > ')} (NEW)`;
+                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'NEW', courseKey, queueString: qStr });
+                } else if (changedKeys && changedKeys.has(courseKey + '|UPDATED')) {
+                    const qStr = `${courseKey.replace(/\|\|/g, ' > ')} (UPDATED)`;
+                    recentUpdates.push({ courseCode, courseIdx, fullCourseName: course.courseName, catName: cat.name, item, type: 'UPDATED', courseKey, queueString: qStr });
+                }
             });
         });
-    }
+    });
 
     const drawer = document.createElement('div');
     drawer.className = 'ff-updates-drawer';
@@ -481,31 +449,16 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
                 itemName = upd.catName + ' #' + itemName;
             }
             
-            let sName = upd.semName;
-            if (/^\d{5}$/.test(sName)) {
-                const nativeSelect = document.querySelector('select#SemId');
-                if (nativeSelect) {
-                    const opt = Array.from(nativeSelect.options).find(o => o.value === sName);
-                    if (opt) sName = opt.textContent.trim();
-                }
-            }
-
-            let semBadgeHtml = '';
-            if (upd.semId && upd.semId !== window._ffCurrentSemesterId) {
-                semBadgeHtml = `<span style="font-size: 10px; background: rgba(100,116,139,0.1); border: 1px solid var(--border-color); color: var(--text-muted); padding: 2px 6px; border-radius: 4px; margin-right: 6px; line-height: 1;">${esc(sName)}</span>`;
-            }
-            
             updatesHtml += `
-                <div class="ff-updates-drawer-row" data-course-idx="${upd.courseIdx}" data-sem-id="${esc(upd.semId)}" data-cat-name="${esc(upd.catName)}" data-item-label="${esc(upd.item.label)}">
+                <div class="ff-updates-drawer-row" data-course-idx="${upd.courseIdx}" data-cat-name="${esc(upd.catName)}" data-item-label="${esc(upd.item.label)}">
                     <div class="ff-updates-drawer-row-left">
                         <span class="ff-updates-drawer-row-course">${esc(upd.courseCode)}</span>
-                        ${semBadgeHtml}
                         <span class="ff-updates-drawer-row-item">${esc(itemName)} (${esc(upd.catName)})</span>
                     </div>
                     <div class="ff-updates-drawer-row-right" style="display: flex; align-items: center; gap: 8px;">
                         <span class="ff-updates-drawer-row-score">${esc(String(obtainedStr))} / ${esc(String(upd.item.total))}</span>
                         <span class="${badgeClass}">${upd.type}</span>
-                        <button class="ff-mark-read-btn" data-course-key="${esc(upd.courseKey)}" data-queue-string="${esc(upd.queueString)}" title="Mark as Read" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; font-weight: bold; font-size: 14px; transition: color 0.2s;">✓</button>
+                        <button class="ff-mark-read-btn" data-course-key="${esc(upd.courseKey)}" data-queue-string="${esc(upd.queueString)}" title="Mark as Read" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 4px; font-weight: bold; font-size: 14px; transition: color 0.2s;">Γ£ô</button>
                     </div>
                 </div>
             `;
@@ -513,7 +466,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
     } else {
         updatesHtml = `
             <div class="ff-updates-empty">
-                <span style="font-size: 1.6rem;">🎉</span>
+                <span style="font-size: 1.6rem;">≡ƒÄë</span>
                 <span>No new updates. All your grades are up-to-date!</span>
             </div>
         `;
@@ -526,23 +479,23 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
     drawer.innerHTML = `
         <div class="ff-updates-drawer-content">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 style="margin: 0;">🔔 Recent Updates</h4>
-                ${recentUpdates.length > 0 ? `<button id="ff-mark-all-read" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s;">Mark All ✓</button>` : ''}
+                <h4 style="margin: 0;">≡ƒöö Recent Updates</h4>
+                ${recentUpdates.length > 0 ? `<button id="ff-mark-all-read" style="background: none; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s;">Mark All Γ£ô</button>` : ''}
             </div>
             <div class="ff-updates-list">
                 ${updatesHtml}
             </div>
         </div>
         <div class="ff-updates-pull-tab">
-            <span class="ff-pull-tab-icon">🔔</span>
+            <span class="ff-pull-tab-icon">≡ƒöö</span>
             <span class="ff-pull-tab-text">${tabText}</span>
-            <span class="ff-pull-tab-arrow">▼</span>
+            <span class="ff-pull-tab-arrow">Γû╝</span>
         </div>
     `;
 
     root.appendChild(drawer);
 
-    // ─ Mark As Read Listeners ──────────────────────────────────────────
+    // ΓöÇ Mark As Read Listeners ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const markAllBtn = drawer.querySelector('#ff-mark-all-read');
     if (markAllBtn) {
         markAllBtn.addEventListener('click', async (e) => {
@@ -551,8 +504,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             const queueStrings = recentUpdates.map(u => u.queueString);
             markAllBtn.disabled = true;
             try {
-                const semesterId = window._ffCurrentSemesterId || 'unknown';
-                const response = await chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys, queueStrings, semesterId });
+                const response = await chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys, queueStrings });
                 if (!response || response.status !== 'processed') throw new Error('Mark as read failed');
             } catch (err) {
                 markAllBtn.disabled = false;
@@ -564,7 +516,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             // Instantly clear the UI visually without reloading
             drawer.querySelector('.ff-updates-list').innerHTML = `
                 <div class="ff-updates-empty">
-                    <span style="font-size: 1.6rem;">🎉</span>
+                    <span style="font-size: 1.6rem;">≡ƒÄë</span>
                     <span>No new updates. All your grades are up-to-date!</span>
                 </div>
             `;
@@ -580,8 +532,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             const qStr = btn.getAttribute('data-queue-string');
             btn.disabled = true;
             try {
-                const semesterId = window._ffCurrentSemesterId || 'unknown';
-                const response = await chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys: [uiKey], queueStrings: [qStr], semesterId });
+                const response = await chrome.runtime.sendMessage({ action: 'markAsRead', uiKeys: [uiKey], queueStrings: [qStr] });
                 if (!response || response.status !== 'processed') throw new Error('Mark as read failed');
             } catch (err) {
                 btn.disabled = false;
@@ -601,7 +552,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             if (remainingRows === 0) {
                 list.innerHTML = `
                     <div class="ff-updates-empty">
-                        <span style="font-size: 1.6rem;">🎉</span>
+                        <span style="font-size: 1.6rem;">≡ƒÄë</span>
                         <span>No new updates. All your grades are up-to-date!</span>
                     </div>
                 `;
@@ -636,46 +587,27 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         drawer.querySelectorAll('.ff-updates-drawer-row').forEach(row => {
             row.addEventListener('click', () => {
                 const cIdx = parseInt(row.getAttribute('data-course-idx'));
-                const updSemId = row.getAttribute('data-sem-id');
                 const catName = row.getAttribute('data-cat-name');
                 const itemLabel = row.getAttribute('data-item-label');
 
-                if (updSemId && updSemId !== 'unknown' && updSemId !== window._ffCurrentSemesterId) {
-                    // Update is from another semester! Switch semester and reload.
-                    const nativeSelect = document.querySelector('select#SemId');
-                    const form = nativeSelect?.closest('form');
-                    if (nativeSelect && form) {
-                        sessionStorage.setItem('ff_manual_sem', 'true');
-                        nativeSelect.value = updSemId;
-                        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                        if (typeof window.$ !== 'undefined') window.$(nativeSelect).trigger('change');
-                        else form.submit();
-                        
-                        drawer.classList.remove('open');
-                        return; // Let the page reload
-                    }
-                }
-
                 // 1. Switch tab
-                if (cIdx >= 0) {
-                    const tabs = root.querySelectorAll('.ff-course-tabs .ff-tab');
-                    if (tabs[cIdx]) {
-                        tabs[cIdx].click();
-                    }
-
-                    // 2. Scroll and highlight
-                    setTimeout(() => {
-                        const targetId = `item-${cIdx}-${safeId(catName)}-${safeId(itemLabel)}`;
-                        const targetRow = document.getElementById(targetId);
-                        if (targetRow) {
-                            targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            targetRow.classList.add('ff-pulse-highlight');
-                            setTimeout(() => {
-                                targetRow.classList.remove('ff-pulse-highlight');
-                            }, 2500);
-                        }
-                    }, 150);
+                const tabs = root.querySelectorAll('.ff-course-tabs .ff-tab');
+                if (tabs[cIdx]) {
+                    tabs[cIdx].click();
                 }
+
+                // 2. Scroll and highlight
+                setTimeout(() => {
+                    const targetId = `item-${cIdx}-${safeId(catName)}-${safeId(itemLabel)}`;
+                    const targetRow = document.getElementById(targetId);
+                    if (targetRow) {
+                        targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targetRow.classList.add('ff-pulse-highlight');
+                        setTimeout(() => {
+                            targetRow.classList.remove('ff-pulse-highlight');
+                        }, 2500);
+                    }
+                }, 150);
 
                 // 3. Close drawer
                 drawer.classList.remove('open');
@@ -683,93 +615,19 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         });
     }
 
-    // ─ Header ─────────────────────────────────────────────────────────
+    // ΓöÇ Header ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const header = document.createElement('div');
     header.className = 'ff-header';
     
     const titleWrapper = document.createElement('div');
     titleWrapper.style.display = 'flex';
     titleWrapper.style.alignItems = 'center';
-    titleWrapper.style.gap = '20px';
+    titleWrapper.style.gap = '20px'; // Increased spacing
     
     const title = document.createElement('h2');
     title.innerHTML = `Marks`;
     title.style.margin = '0';
     
-    // ─ Semester Selector ──────────────────────────────────────────────
-    const semesterInfo = options.semesterInfo || window._ffSemesterInfo || null;
-    let semesterDropdownEl = null;
-
-    if (semesterInfo && semesterInfo.options && semesterInfo.options.length > 1) {
-        const semWrapper = document.createElement('div');
-        semWrapper.className = 'ff-semester-wrapper';
-
-        const currentSemName = semesterInfo.selectedName || semesterInfo.options[0]?.name || 'Current';
-        const semBtn = document.createElement('div');
-        semBtn.className = 'ff-semester-selector';
-        semBtn.innerHTML = `<span>${esc(currentSemName)}</span><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
-
-        const dropdown = document.createElement('div');
-        dropdown.className = 'ff-semester-dropdown';
-        semesterDropdownEl = dropdown;
-
-        semesterInfo.options.forEach(opt => {
-            const item = document.createElement('div');
-            item.className = 'ff-semester-option' + (opt.id === semesterInfo.selectedId ? ' active' : '');
-            item.textContent = opt.name;
-            item.addEventListener('click', () => {
-                if (opt.id === semesterInfo.selectedId) {
-                    dropdown.classList.remove('open');
-                    semBtn.classList.remove('open');
-                    return;
-                }
-                
-                // Mark that the user manually selected a semester to prevent auto-fallback later
-                sessionStorage.setItem('ff_manual_sem', 'true');
-                
-                const nativeSelect = document.querySelector('select#SemId');
-                const form = nativeSelect?.closest('form');
-                if (nativeSelect && form) {
-                    dropdown.classList.remove('open');
-                    semBtn.classList.remove('open');
-                    
-                    // Show loading on the button
-                    const titleNode = semBtn.querySelector('span');
-                    if (titleNode) titleNode.textContent = opt.name + ' (Loading...)';
-                    
-                    nativeSelect.value = opt.id;
-                    nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                    if (typeof window.$ !== 'undefined') window.$(nativeSelect).trigger('change');
-                    else form.submit();
-                }
-            });
-            dropdown.appendChild(item);
-        });
-
-        semBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle('open');
-            semBtn.classList.toggle('open');
-        });
-
-        semWrapper.appendChild(semBtn);
-        semWrapper.appendChild(dropdown);
-        titleWrapper.appendChild(title);
-        titleWrapper.appendChild(semWrapper);
-    } else {
-        titleWrapper.appendChild(title);
-    }
-
-    // Close semester dropdown when clicking outside
-    _semDropdownCloseHandler = (e) => {
-        if (semesterDropdownEl && !semesterDropdownEl.parentNode?.contains(e.target)) {
-            semesterDropdownEl.classList.remove('open');
-            const semBtn = document.querySelector('.ff-semester-selector');
-            if (semBtn) semBtn.classList.remove('open');
-        }
-    };
-    document.addEventListener('click', _semDropdownCloseHandler);
-
     const syncBtn = document.createElement('div');
     syncBtn.id = 'ff-sync-marks-btn';
     syncBtn.title = 'Sync Marks';
@@ -785,15 +643,12 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         syncBtn.style.color = 'var(--text-muted)';
     });
     syncBtn.addEventListener('click', () => {
-        if (syncBtn.style.pointerEvents === 'none') return;
-        syncBtn.style.pointerEvents = 'none';
-        syncBtn.style.opacity = '0.5';
         const svg = syncBtn.querySelector('svg');
         svg.style.transform = `rotate(${(parseInt(svg.dataset.rot||0) + 360)}deg)`;
         svg.dataset.rot = (parseInt(svg.dataset.rot||0) + 360);
         try {
-            chrome.runtime.sendMessage({ action: 'syncSpecificSemester', semId: window._ffCurrentSemesterId || 'unknown' }).catch(()=>{});
-        } catch(e) {}
+            chrome.runtime.sendMessage({ action: 'triggerBackgroundCheck' }).catch(()=>{});
+        } catch(e){}
     });
     
     const gpaBtn = document.createElement('div');
@@ -814,86 +669,14 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         if (window.ffToggleGpaPlanner) window.ffToggleGpaPlanner(marksData);
     });
 
+    titleWrapper.appendChild(title);
     titleWrapper.appendChild(syncBtn);
     titleWrapper.appendChild(gpaBtn);
     header.appendChild(titleWrapper);
     
     root.appendChild(header);
 
-    // ─ Empty Semester / New Student State ──────────────────────────────
-    if (marksData.length === 0) {
-        // Auto-fallback logic: if the current semester is empty, and the user hasn't
-        // explicitly clicked a semester yet, find the most recent populated semester.
-        if (semesterInfo && semesterInfo.options && semesterInfo.options.length > 1) {
-            const isManual = sessionStorage.getItem('ff_manual_sem') === 'true';
-            const currIndex = semesterInfo.options.findIndex(o => o.id === semesterInfo.selectedId);
-            
-            if (!isManual && currIndex !== -1 && currIndex < semesterInfo.options.length - 1) {
-                const nativeSelect = document.querySelector('select#SemId');
-                const form = nativeSelect?.closest('form');
-                
-                if (nativeSelect && form) {
-                    // Temporarily show a notice that we are redirecting
-                    const notice = document.createElement('div');
-                    notice.className = 'ff-semester-notice';
-                    notice.style.cssText = 'padding: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;';
-                    notice.innerHTML = `
-                        <span style="font-size: 1.3rem;">📋</span>
-                        <span><strong>${esc(semesterInfo.selectedName || 'Current semester')}</strong> has no assessments yet. Searching for latest grades...</span>
-                    `;
-                    root.appendChild(notice);
-                    
-                    try {
-                        chrome.storage.local.get(null, (data) => {
-                            let targetOpt = null;
-                            
-                            // Look for the first older semester that has cached snapshots
-                            for (let i = currIndex + 1; i < semesterInfo.options.length; i++) {
-                                const checkId = semesterInfo.options[i].id;
-                                if (Object.keys(data).some(k => k.startsWith(`ff_snap_${checkId}__`))) {
-                                    targetOpt = semesterInfo.options[i];
-                                    break;
-                                }
-                            }
-                            
-                            // If no snapshots found (e.g. fresh install), just cascade to the immediate next one
-                            if (!targetOpt) {
-                                targetOpt = semesterInfo.options[currIndex + 1];
-                            }
-                            
-                            notice.innerHTML = `
-                                <span style="font-size: 1.3rem;">📋</span>
-                                <span><strong>${esc(semesterInfo.selectedName || 'Current semester')}</strong> has no assessments yet. Redirecting to <strong>${esc(targetOpt.name)}</strong>...</span>
-                            `;
-                            
-                            nativeSelect.value = targetOpt.id;
-                            nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                            if (typeof window.$ !== 'undefined') window.$(nativeSelect).trigger('change');
-                            else form.submit();
-                        });
-                        return;
-                    } catch (e) {
-                        const fallbackOpt = semesterInfo.options[currIndex + 1];
-                        notice.innerHTML = `
-                            <span style="font-size: 1.3rem;">📋</span>
-                            <span><strong>${esc(semesterInfo.selectedName || 'Current semester')}</strong> has no assessments yet. Redirecting to <strong>${esc(fallbackOpt.name)}</strong>...</span>
-                        `;
-                        nativeSelect.value = fallbackOpt.id;
-                        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                        if (typeof window.$ !== 'undefined') window.$(nativeSelect).trigger('change');
-                        else form.submit();
-                        return;
-                    }
-                }
-            }
-        }
-        
-        // Show the empty state.
-        showMarksEmptyState(root, semesterInfo?.selectedName);
-        return;
-    }
-
-    // ─ Course tabs ────────────────────────────────────────────────────
+    // ΓöÇ Course tabs ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const tabBar = document.createElement('div');
     tabBar.className = 'ff-course-tabs';
     header.appendChild(tabBar);
@@ -911,52 +694,11 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             .replace(/\s*\(.*\)$/, '')
             .trim();
 
-        // --- BEST OF N LOGIC PREPROCESSING ---
-        course.categories.forEach(cat => {
-            if (cat.givenWeightage > 0 && cat.items.length > 0) {
-                let sumWeights = 0;
-                let firstWeight = null;
-                let allSameWeight = true;
-                let gradedItems = [];
-                
-                cat.items.forEach(item => {
-                    if (item.weight > 0) {
-                        sumWeights += item.weight;
-                        if (firstWeight === null) firstWeight = item.weight;
-                        else if (item.weight !== firstWeight) allSameWeight = false;
-                        
-                        if (item.obtained !== null && item.obtained !== undefined && item.total > 0) {
-                            gradedItems.push(item);
-                        }
-                    }
-                });
-
-                // Condition 1: Weight distribution exceeds given weightage (adding epsilon for float math)
-                // Condition 2: Weightage is same
-                if (allSameWeight && firstWeight > 0 && sumWeights > (cat.givenWeightage + 0.01)) {
-                    const N = Math.round(cat.givenWeightage / firstWeight);
-                    if (N > 0 && gradedItems.length > N) {
-                        // Sort graded items by percentage descending
-                        gradedItems.sort((a, b) => {
-                            const pctA = a.obtained / a.total;
-                            const pctB = b.obtained / b.total;
-                            return pctB - pctA;
-                        });
-                        
-                        // Drop the lowest items
-                        for (let i = N; i < gradedItems.length; i++) {
-                            gradedItems[i]._isDropped = true;
-                        }
-                    }
-                }
-            }
-        });
-
         // Compute overall score for this course
         let totalObtained = 0, totalWeight = 0;
         course.categories.forEach(cat => {
             cat.items.forEach(item => {
-                if (item.obtained !== null && item.obtained !== undefined && !item._isDropped) {
+                if (item.obtained !== null && item.obtained !== undefined) {
                     const contrib = (item.weight > 0 && item.total > 0) ? (item.obtained / item.total) * item.weight : 0;
                     totalObtained += contrib;
                     totalWeight += item.weight;
@@ -980,7 +722,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         });
         tabBar.appendChild(tab);
 
-        // ─ Panel for this course ─────────────────────────────────────
+        // ΓöÇ Panel for this course ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         const panel = document.createElement('div');
         panel.style.display = idx === activeCourse ? '' : 'none';
         root.appendChild(panel);
@@ -998,14 +740,12 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         let avgGradedWeight = 0; // weight of items that have average
         course.categories.forEach(cat => {
             cat.items.forEach(item => {
-                if (!item._isDropped) {
-                    if (item.weight > 0 && item.total > 0 && item.obtained !== null && item.obtained !== undefined) {
-                        gradedWeight += item.weight;
-                    }
-                    if (item.weight > 0 && item.total > 0 && item.avg !== null && item.avg !== undefined) {
-                        totalAvgObtained += (item.avg / item.total) * item.weight;
-                        avgGradedWeight += item.weight;
-                    }
+                if (item.weight > 0 && item.total > 0 && item.obtained !== null && item.obtained !== undefined) {
+                    gradedWeight += item.weight;
+                }
+                if (item.weight > 0 && item.total > 0 && item.avg !== null && item.avg !== undefined) {
+                    totalAvgObtained += (item.avg / item.total) * item.weight;
+                    avgGradedWeight += item.weight;
                 }
             });
         });
@@ -1072,7 +812,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             });
         });
 
-        // ─ Category cards grid ───────────────────────────────────────
+        // ΓöÇ Category cards grid ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         const grid = document.createElement('div');
         grid.className = 'ff-cards-grid';
         panel.appendChild(grid);
@@ -1089,29 +829,27 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             let hasAvg = false;
 
             cat.items.forEach(item => {
-                if (!item._isDropped) {
-                    catTotalWeight += item.weight;
-                    if (item.obtained !== null && item.obtained !== undefined) {
-                        catObtained += item.obtained;
-                        catTotal    += item.total;
-                        catWeight   += item.weight;
-                        if (item.total > 0) {
-                            catWtObtained += (item.obtained / item.total) * item.weight;
-                        }
+                catTotalWeight += item.weight;
+                if (item.obtained !== null && item.obtained !== undefined) {
+                    catObtained += item.obtained;
+                    catTotal    += item.total;
+                    catWeight   += item.weight;
+                    if (item.total > 0) {
+                        catWtObtained += (item.obtained / item.total) * item.weight;
                     }
-                    if (item.avg !== null && item.avg !== undefined) {
-                        catAvgObtained += item.avg;
-                        catAvgTotal    += item.total;
-                        catAvgWeight   += item.weight;
-                        if (item.total > 0) {
-                            catAvgWtObtained += (item.avg / item.total) * item.weight;
-                        }
-                        hasAvg = true;
+                }
+                if (item.avg !== null && item.avg !== undefined) {
+                    catAvgObtained += item.avg;
+                    catAvgTotal    += item.total;
+                    catAvgWeight   += item.weight;
+                    if (item.total > 0) {
+                        catAvgWtObtained += (item.avg / item.total) * item.weight;
                     }
-                    if (item.obtained !== null && item.obtained !== undefined && item.avg !== null && item.avg !== undefined) {
-                        comparableObtained += item.obtained;
-                        comparableAvg += item.avg;
-                    }
+                    hasAvg = true;
+                }
+                if (item.obtained !== null && item.obtained !== undefined && item.avg !== null && item.avg !== undefined) {
+                    comparableObtained += item.obtained;
+                    comparableAvg += item.avg;
                 }
             });
             const catPct = catTotal > 0 ? (catObtained / catTotal * 100) : 0;
@@ -1191,12 +929,8 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
                 // Change detection badges
                 const courseKey = `${course.courseName}||${cat.name}||${item.label}`;
                 let badge = '';
-                if (item._isDropped) {
-                    badge = '<span class="ff-badge-dropped" style="background:#64748b;color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:4px;margin-right:6px;font-weight:700;letter-spacing:0.5px;">DROPPED</span>';
-                } else {
-                    if (changedKeys && changedKeys.has(courseKey + '|NEW'))     badge = '<span class="ff-badge-new">NEW</span>';
-                    if (changedKeys && changedKeys.has(courseKey + '|UPDATED')) badge = '<span class="ff-badge-upd">UPD</span>';
-                }
+                if (changedKeys && changedKeys.has(courseKey + '|NEW'))     badge = '<span class="ff-badge-new">NEW</span>';
+                if (changedKeys && changedKeys.has(courseKey + '|UPDATED')) badge = '<span class="ff-badge-upd">UPD</span>';
 
                 const minMaxHtml = (item.min !== null && item.max !== null)
                     ? `<span class="ff-item-minmax">Min ${esc(String(item.min))} | Max ${esc(String(item.max))}</span>` : '';
@@ -1204,7 +938,6 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
                 const row = document.createElement('div');
                 row.id = `item-${idx}-${safeId(cat.name)}-${safeId(item.label)}`;
                 row.className = 'ff-item-row' + (isItemBelow ? ' ff-item-below' : '');
-                if (item._isDropped) row.style.opacity = '0.5';
                 let itemName = item.label;
                 if (!isNaN(itemName) || itemName.length <= 2) {
                     itemName = cat.name + ' #' + itemName;
@@ -1227,7 +960,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             grid.appendChild(card);
         });
 
-        // ─ Grand Final Marks Card ─────────────────────────────────────
+        // ΓöÇ Grand Final Marks Card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         if (course.grandTotal) {
             const gt = course.grandTotal;
             const gtCard = document.createElement('div');
@@ -1271,7 +1004,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         }
     });
 
-    // ── TRIGGER FIRST-TIME TUTORIAL ──
+    // ΓöÇΓöÇ TRIGGER FIRST-TIME TUTORIAL ΓöÇΓöÇ
     try {
         chrome.storage.local.get(['ff_tutorial_v2_status'], (res) => {
             if (!res.ff_tutorial_v2_status || res.ff_tutorial_v2_status === 'unseen') {
@@ -1321,7 +1054,7 @@ window.updateGrandTotalCardsInDOM = (marksData) => {
             </div>
         `;
         
-        // ── SURGICAL UPDATE OF ENTIRE PERFORMANCE CARD ──
+        // ΓöÇΓöÇ SURGICAL UPDATE OF ENTIRE PERFORMANCE CARD ΓöÇΓöÇ
         // The panel is the direct parent of the grand total card (a plain div with no class)
         const panel = gtCard.parentElement;
         if (!panel) return;
@@ -1373,7 +1106,7 @@ window.updateGrandTotalCardsInDOM = (marksData) => {
         const ptrLabelMe = panel.querySelector('.ff-ptr-label-me');
         if (ptrLabelMe) ptrLabelMe.innerHTML = `&#9660; ${overallPct.toFixed(2)}%`;
         
-        // Update stats row — graded to date
+        // Update stats row ΓÇö graded to date
         const statsRow = panel.querySelector('.ff-stats-row');
         if (statsRow) {
             const spans = statsRow.querySelectorAll('span');
@@ -1382,7 +1115,7 @@ window.updateGrandTotalCardsInDOM = (marksData) => {
             }
         }
         
-        // ── UPDATE CLASS AVERAGE IF WEIGHTAGE IS 100% ──
+        // ΓöÇΓöÇ UPDATE CLASS AVERAGE IF WEIGHTAGE IS 100% ΓöÇΓöÇ
         let classAvgPct = avgGradedWeight > 0 ? (totalAvgObtained / avgGradedWeight * 100) : 0;
         let displayAvgObtained = totalAvgObtained;
         let displayAvgTotal = avgGradedWeight;
@@ -1413,7 +1146,7 @@ window.updateGrandTotalCardsInDOM = (marksData) => {
     });
 };
 
-// ── GPA Projection Row ──────────────────────────────────────────────────
+// ΓöÇΓöÇ GPA Projection Row ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
     const row = document.createElement('div');
     row.className = 'ff-gpa-row';
@@ -1455,8 +1188,6 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
 
     function update() {
         const target = parseFloat(sel.value);
-        // Because the university rounds up from .5, the minimum percentage needed is target - 0.5
-        const minTarget = target > 0 ? target - 0.5 : 0;
         const currentContrib = currentPct * (gradedWeight / 100);
         
         if (ungradedWeight <= 0) {
@@ -1465,14 +1196,14 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
             noWeightBadge.style.display = '';
         } else {
             noWeightBadge.style.display = 'none';
-            if (currentContrib >= minTarget) {
+            if (currentContrib >= target) {
                 result.className = 'ff-gpa-top';
                 result.textContent = 'Already achieved!';
             } else {
-                const neededWeight = minTarget - currentContrib;
+                const neededWeight = target - currentContrib;
                 const neededOnRemaining = (neededWeight / ungradedWeight) * 100;
                 const tierObj = GPA_TIERS.find(t=>t.pct===target);
-                const suffix = tierObj ? ` → ${tierObj.label} (${tierObj.gpa.toFixed(2)})` : '';
+                const suffix = tierObj ? ` ΓåÆ ${tierObj.label} (${tierObj.gpa.toFixed(2)})` : '';
 
                 if (neededOnRemaining > 100) {
                     result.className = 'ff-gpa-impossible';
@@ -1506,9 +1237,8 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
         }
         sel.value = currentTier.pct;
     } else {
-        // Pre-select the tier just above current (accounting for rounding)
-        const roundedCurrent = Math.round(currentPct);
-        const nextTier = [...availableTiers].reverse().find(t => t.pct > roundedCurrent);
+        // Pre-select the tier just above current
+        const nextTier = [...availableTiers].reverse().find(t => t.pct > currentPct);
         if (nextTier) sel.value = nextTier.pct;
         else sel.value = availableTiers[0].pct;
     }
@@ -1517,9 +1247,9 @@ function buildGpaProjectionRow(currentPct, gradedWeight, ungradedWeight) {
     return row;
 }
 
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 // 5. TRANSCRIPT DASHBOARD
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
 function renderTranscriptDashboard(semesters) {
     if (!ffUIEnabled) return;
@@ -1557,8 +1287,8 @@ function renderTranscriptDashboard(semesters) {
                 runningCrHrs  += cr;
             }
         });
-        sem.sgpa = semCrHrs > 0 ? (semPoints / semCrHrs).toFixed(2) : '—';
-        sem.cgpa = runningCrHrs > 0 ? (runningPoints / runningCrHrs).toFixed(2) : '—';
+        sem.sgpa = semCrHrs > 0 ? (semPoints / semCrHrs).toFixed(2) : 'ΓÇö';
+        sem.cgpa = runningCrHrs > 0 ? (runningPoints / runningCrHrs).toFixed(2) : 'ΓÇö';
         sem.semCrHrs = semCrHrs;
     });
 
@@ -1621,13 +1351,13 @@ function renderTranscriptDashboard(semesters) {
                 '<div class="ff-tr-left">' +
                     '<div class="ff-tr-name">' + esc(c.name) + '</div>' +
                     '<div class="ff-tr-meta">' +
-                        '<span class="ff-tr-code">' + esc(c.code) + ' • ' + cr + ' Cr</span>' +
+                        '<span class="ff-tr-code">' + esc(c.code) + ' ΓÇó ' + cr + ' Cr</span>' +
                         (weightPct ? '<span class="ff-tr-sep">|</span><span class="ff-tr-weight">Weight: ' + weightPct + '</span>' : '') +
                         (contribPts ? '<span class="ff-tr-sep">|</span><span class="ff-tr-contrib">Contributes ' + contribPts + '</span>' : '') +
                     '</div>' +
                 '</div>' +
                 '<div class="ff-grade-badge" style="background:' + gs.bg + ';border-color:' + gs.border + ';color:' + gs.text + '">' +
-                    esc(c.grade || '—') +
+                    esc(c.grade || 'ΓÇö') +
                 '</div>';
             courseList.appendChild(item);
         });
@@ -1656,9 +1386,9 @@ window.renderMarksDashboard = renderMarksDashboard;
 window.renderTranscriptDashboard = renderTranscriptDashboard;
 window.ffRunTranscript = () => { if (typeof runTranscript === 'function') runTranscript(); };
 
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 // 6. TUTORIAL ENGINE
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
 window.ffRunTutorial = function() {
     if (document.getElementById('ff-tutorial-overlay')) return;
@@ -1676,7 +1406,7 @@ window.ffRunTutorial = function() {
         steps.push({
             el: updatesDrawer,
             title: 'Smart Notifications',
-            text: 'This dropdown tracks all your newly uploaded marks. You never have to click through courses to find what was just graded—it will be highlighted right here!',
+            text: 'This dropdown tracks all your newly uploaded marks. You never have to click through courses to find what was just gradedΓÇöit will be highlighted right here!',
             pos: 'bottom',
             offsetY: 35
         });
@@ -1987,9 +1717,9 @@ window.ffRunTutorial = function() {
     } else {
         document.addEventListener('DOMContentLoaded', initReFlex);
     }
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 // 7. GPA PLANNER SIDEBAR
-// ══════════════════════════════════════════════════════════════════════════
+// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
 let _gpaSidebarOpen = false;
 let _gpaSelections = {};
@@ -2096,7 +1826,7 @@ function renderGpaPlannerUI(marksData, sidebar) {
             <span class="ff-gpa-close" id="ff-gpa-close-btn">&times;</span>
         </div>
         <div class="ff-gpa-hero">
-            <span id="ff-gpa-reset-btn" class="ff-gpa-reset" title="Reset all to Current">↺</span>
+            <span id="ff-gpa-reset-btn" class="ff-gpa-reset" title="Reset all to Current">Γå║</span>
             <div style="font-size: 13px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;">Projected Semester GPA</div>
             <div id="ff-gpa-hero-value" class="ff-gpa-hero-value">0.00</div>
         </div>

@@ -39,7 +39,8 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 - **Recent Updates Drawer** — A slide-out drawer aggregates all new or updated marks across all your courses in one place. Clicking an update automatically switches to that course tab and scrolls to the exact highlighted row.
 - **Live Sync Engine ("Ghost Sync")** — A dedicated Sync button on the Marks page silently fetches your latest marks from the server in an invisible background frame and hot-swaps the UI without ever reloading the page. It even automatically runs in the background every few minutes to keep you instantly up to date.
 - **Interactive First-Time Tutorial** — When you first open the Marks page, an elegant, interactive overlay tutorial highlights and explains all the new features, complete with a replay button in the extension popup.
-- **Per-Course GPA Projection Engine** — Select any target grade (C through A) from a dropdown. ReFlex instantly calculates the exact percentage you need to score across your remaining coursework to reach that grade. It clearly displays how many points each course contributes to your SGPA, and automatically locks courses whose grading is mathematically complete.
+- **Per-Course GPA Projection Engine** — Select any target grade (C through A+) from a dropdown. ReFlex instantly calculates the exact percentage you need to score across your remaining coursework to reach that grade. It clearly displays how many points each course contributes to your SGPA, and automatically locks courses whose grading is mathematically complete.
+- **Best of N / Drop Logic Support** — Fully supports complex grading structures where the lowest quizzes or assignments are dropped. Dropped items are visually struck through so you know exactly which scores are contributing to your final total.
 - **Current Grade & GPA Badge** — Your live grade and GPA points are displayed prominently with a colour-coded badge (emerald for A, indigo for B, amber for C, and so on).
 - **NEW & UPDATED Tracking** — ReFlex saves a local snapshot of your marks. When a teacher uploads a new quiz or edits a previous score, the changed row is instantly tagged with a bright `NEW` or `UPD` badge. You always know exactly what changed since your last visit.
 - **Below-Average Warning** — Every assessment that you scored below the class average is automatically flagged with a `!` warning indicator, so you know precisely where you lost ground.
@@ -97,7 +98,7 @@ If you prefer to install the latest developer version manually on any Chromium-b
 
 ### Step 1: Download the Extension
 1. Go to the [Releases page](../../releases) (or click the green **Code** button and select **Download ZIP**).
-2. Download the latest `ReFlex v1.0.zip` file.
+2. Download the latest `ReFlex v2.1.0.zip` file.
 3. Extract the downloaded ZIP file to an easily accessible folder on your computer.
 
 ### Step 2: Load into Your Browser

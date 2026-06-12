@@ -1,47 +1,27 @@
-(function() {
+﻿(function() {
     'use strict';
     function runMarks(isSilent = false) {
         try {
-            if (!isSilent && window._ffBackgroundMarksCache && !location.search.includes('ff_sync=1')) {
+            if (window._ffBackgroundMarksCache && !location.search.includes('ff_sync=1')) {
                 const marksData = window._ffBackgroundMarksCache;
-                const semId = window._ffCurrentSemesterId || 'unknown';
                 if (window.ffDiffAndSave) {
-                    window.ffDiffAndSave(marksData, semId, (changedKeys, allUpdates) => {
+                    window.ffDiffAndSave(marksData, changedKeys => {
                         if (isSilent && window.updateGrandTotalCardsInDOM) window.updateGrandTotalCardsInDOM(marksData);
-                        else if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, changedKeys, { semesterInfo: window._ffSemesterInfo, allUpdates });
+                        else if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, changedKeys);
                     });
                 } else {
                     if (isSilent && window.updateGrandTotalCardsInDOM) window.updateGrandTotalCardsInDOM(marksData);
-                    else if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, new Set(), { semesterInfo: window._ffSemesterInfo });
+                    else if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, new Set());
                 }
-                startGtPoller();
                 return;
             }
-    // ── Extract semester info from native dropdown ──
-    let semesterInfo = null;
-    const semSelect = document.querySelector('select#SemId');
-    if (semSelect) {
-        const options = Array.from(semSelect.querySelectorAll('option')).map(opt => ({
-            id: opt.value,
-            name: opt.textContent.trim()
-        }));
-        const selectedOpt = semSelect.querySelector('option[selected]') || semSelect.options[semSelect.selectedIndex];
-        semesterInfo = {
-            options,
-            selectedId: selectedOpt ? selectedOpt.value : (options[0]?.id || null),
-            selectedName: selectedOpt ? selectedOpt.textContent.trim() : (options[0]?.name || null)
-        };
-    }
-    // Store on window for background cache path and content.js access
-    window._ffSemesterInfo = semesterInfo;
-    window._ffCurrentSemesterId = semesterInfo?.selectedId || 'unknown';
 
     const tables = document.querySelectorAll('table, .m-datatable');
     let marksData = [];
     let lastCourseData = null;
 
     tables.forEach(table => {
-        // ── FAST PATH: Grand Final Marks via explicit class names ──
+        // ΓöÇΓöÇ FAST PATH: Grand Final Marks via explicit class names ΓöÇΓöÇ
         // Responsive tables often have duplicate hidden rows that are empty. Find the one with text.
         const gtRows = Array.from(table.querySelectorAll('tr.GrandtotalColumn'));
         const gtRow = gtRows.find(r => r.textContent.trim().match(/\d/)) || gtRows[0];
@@ -118,7 +98,7 @@
         }
         if (headerRowIdx === -1) return;
 
-        // ── Course name: walk UP the DOM looking for a heading with a course code ──
+        // ΓöÇΓöÇ Course name: walk UP the DOM looking for a heading with a course code ΓöÇΓöÇ
         let courseName = '';
         let node = table.parentElement;
         for (let i = 0; i < 10 && node && !courseName; i++) {
@@ -187,7 +167,7 @@
             if (cells.length === 0) continue;
 
             const rowText = row.textContent.trim().toLowerCase();
-            if (rowText.includes('grand total')) continue;
+            if (rowText.includes('grand total') || rowText === 'total') continue;
 
             // Category header row (colspan or very few cells with no numbers)
             if (cells.length === 1 ||
@@ -201,12 +181,6 @@
                     } else {
                         currentCat = { name: catName, items: [] };
                         courseData.categories.push(currentCat);
-                    }
-                    
-                    // Try to extract weightage from category name, e.g., "Quizzes (10%)" or "Assignments (15 Marks)"
-                    const wtMatch = catName.match(/\(\s*(\d+(?:\.\d+)?)\s*(?:%|weightage|wt|marks)?\s*\)/i);
-                    if (wtMatch) {
-                        currentCat.givenWeightage = parseFloat(wtMatch[1]);
                     }
                 }
                 continue;
@@ -230,18 +204,7 @@
             }
 
             let label = cells[0]?.textContent.trim() || 'Item';
-            
-            // Check for category Total row to extract given weightage
-            if (label.toLowerCase() === 'total' || rowText === 'total') {
-                if (currentCat) {
-                    const cellsArr = Array.from(cells);
-                    const totalWt = getNumOrNull('weightage', cellsArr);
-                    if (totalWt > 0 && !currentCat.givenWeightage) {
-                        currentCat.givenWeightage = totalWt;
-                    }
-                }
-                continue;
-            }
+            if (label.toLowerCase() === 'total') continue;
 
             // Handle duplicate names
             if (nameCounts[label]) {
@@ -269,39 +232,35 @@
     // Remove courses with no valid categories
     marksData = marksData.filter(c => c.categories.length > 0);
 
-    const semId = window._ffCurrentSemesterId || 'unknown';
+    if (marksData.length === 0) return;
 
-    // If no data at all, we still proceed to call ffDiffAndSave 
-    // to fetch cross-semester updates for the drawer.
-    // marksData is empty ([]), which is safely handled by the diffing engine.
+    if (location.search.includes('ff_sync=1')) {
+        // We are in the hidden sync iframe!
+        // The data is fully extracted. Send it to parent and stop.
+        window.parent.postMessage({ type: 'FF_SYNC_COMPLETE', marksData }, window.location.origin);
+        return;
+    }
 
     if (window.ffDiffAndSave) {
-        window.ffDiffAndSave(marksData, semId, (changedKeys, allUpdates) => {
+        window.ffDiffAndSave(marksData, changedKeys => {
             if (isSilent && window.updateGrandTotalCardsInDOM) {
                 window.updateGrandTotalCardsInDOM(marksData);
             } else {
-                if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, changedKeys, { semesterInfo, allUpdates });
+                if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, changedKeys);
             }
         });
     } else {
         if (isSilent && window.updateGrandTotalCardsInDOM) {
             window.updateGrandTotalCardsInDOM(marksData);
         } else {
-            if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, new Set(), { semesterInfo });
+            if (window.renderMarksDashboard) window.renderMarksDashboard(marksData, new Set());
         }
     }
 
-    // ── START GRAND TOTAL LAZY-LOADER POLLER ──
+    // ΓöÇΓöÇ START GRAND TOTAL LAZY-LOADER POLLER ΓöÇΓöÇ
     // Must be inside runMarks() so it's re-created after each SPA navigation
     // (tearDown() in ff-observer.js clears the poller on every nav change)
     startGtPoller();
-    
-    // Trigger a silent background sync for older semesters
-    if (!isSilent) {
-        try {
-            chrome.runtime.sendMessage({ action: 'silentBackgroundSync' }).catch(() => {});
-        } catch (e) {}
-    }
 
         } catch (e) {
             if (e.message && e.message.includes('Extension context invalidated')) {
@@ -319,7 +278,7 @@
     window.runMarks = runMarks;
     // --- END OF runMarks FUNCTION ---
 
-    // ── FALLBACK POLLER FOR ANGULAR'S GRAND TOTAL LAZY LOADING ──
+    // ΓöÇΓöÇ FALLBACK POLLER FOR ANGULAR'S GRAND TOTAL LAZY LOADING ΓöÇΓöÇ
     // Extracted into a named function so runMarks() can re-start it after
     // tearDown() clears the interval during SPA navigation.
     function startGtPoller() {
@@ -332,7 +291,7 @@
         window.ffGtPoller = setInterval(() => {
             if (!location.href.toLowerCase().includes('marks')) return;
             
-            // ── FORCE LAZY LOAD: Automatically click the native accordion to fetch data ──
+            // ΓöÇΓöÇ FORCE LAZY LOAD: Automatically click the native accordion to fetch data ΓöÇΓöÇ
             // Angular takes a moment to bind click listeners. Give it 2.5 seconds to settle.
             if (!window.ffAngularReady) {
                 if (Date.now() - window.ffStartTime > 2500) {
