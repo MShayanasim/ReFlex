@@ -2074,6 +2074,22 @@ html.ff-dark .ff-btn-outline:hover {
         font-family: 'Inter', sans-serif, Arial !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+        padding-bottom: 50px !important;
+    }
+    
+    .ff-print-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        padding-top: 10px;
+        padding-bottom: 15px;
+        border-top: 1px dashed #cbd5e1 !important;
+        font-size: 8pt;
+        color: #64748b !important;
+        text-align: center;
+        background: white !important;
+        z-index: 1000;
     }
     
     .ff-print-header {
