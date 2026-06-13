@@ -2136,6 +2136,9 @@ html.ff-dark .ff-btn-outline:hover {
         text-align: left;
         border-bottom: 1px solid #f3f4f6 !important;
     }
+    .ff-print-table th:nth-child(n+3), .ff-print-table td:nth-child(n+3) {
+        text-align: center;
+    }
     .ff-print-table th {
         font-weight: 600;
         color: #6b7280 !important;
@@ -2145,7 +2148,7 @@ html.ff-dark .ff-btn-outline:hover {
         border-bottom: 1px solid #d1d5db !important;
     }
     .ff-print-table tr:nth-child(even) td {
-        background: #fdfdfd !important;
+        background: #f8fafc !important;
     }
     .ff-print-table td {
         color: #374151 !important;
