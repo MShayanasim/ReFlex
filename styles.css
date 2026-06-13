@@ -2148,7 +2148,7 @@ html.ff-dark .ff-btn-outline:hover {
         border-bottom: 1px solid #d1d5db !important;
     }
     .ff-print-table tr:nth-child(even) td {
-        background: #f8fafc !important;
+        background: #f1f5f9 !important;
     }
     .ff-print-table td {
         color: #374151 !important;
