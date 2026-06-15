@@ -970,8 +970,9 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         const overallPct = totalWeight > 0 ? (totalObtained / totalWeight * 100) : 0;
         const tier = pctToGrade(overallPct);
 
+        const isFullyGraded = Math.max(0, 100 - totalWeight) <= 0.01;
         const tab = document.createElement('div');
-        tab.className = 'ff-tab' + (idx === activeCourse ? ' active' : '');
+        tab.className = 'ff-tab' + (idx === activeCourse ? ' active' : '') + (isFullyGraded ? ' ff-tab-golden' : '');
         tab.innerHTML = `
             <span class="ff-tab-code">${esc(code)}</span>
             <span class="ff-tab-name">${esc(displayName)}</span>
@@ -2370,6 +2371,29 @@ function renderGpaPlannerUI(marksData, sidebar) {
             </div>
         `;
     });
+
+    if (coursesData.length === 0) {
+        sidebar.innerHTML = `
+            <div class="ff-gpa-header">
+                <h3>GPA Planner</h3>
+                <span class="ff-gpa-close" id="ff-gpa-empty-close-btn">&times;</span>
+            </div>
+            <div class="ff-gpa-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 16px; opacity: 0.8;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <p style="font-weight: 600;">No Grades Yet</p>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">The GPA planner will activate once instructors upload assessments for this semester.</p>
+            </div>
+        `;
+        const emptyCloseBtn = sidebar.querySelector('#ff-gpa-empty-close-btn');
+        if (emptyCloseBtn) {
+            emptyCloseBtn.addEventListener('click', () => {
+                sidebar.style.transform = 'translateX(100%)';
+                setTimeout(() => sidebar.remove(), 300);
+                _gpaSidebarOpen = false;
+            });
+        }
+        return;
+    }
 
     html += `</div>`;
     sidebar.innerHTML = html;

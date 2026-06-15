@@ -106,6 +106,27 @@
 }
 .ff-tab.active .ff-tab-name { color: rgba(255,255,255,0.75); }
 
+/* Golden Tab for 100% Graded */
+.ff-tab.ff-tab-golden {
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #d97706;
+}
+.ff-tab.ff-tab-golden:hover {
+    background: rgba(245, 158, 11, 0.05);
+}
+.ff-tab.ff-tab-golden.active {
+    background: linear-gradient(135deg, #fbbf24, #d97706);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+}
+.ff-tab.ff-tab-golden .ff-tab-name {
+    color: rgba(217, 119, 6, 0.7);
+}
+.ff-tab.ff-tab-golden.active .ff-tab-name {
+    color: rgba(255, 255, 255, 0.9);
+}
+
 
 /* ── Shared card ─────────────────────────────────────────── */
 .ff-progress-card,
@@ -888,6 +909,26 @@ html.ff-dark .ff-tab:hover { background: #263447 !important; color: #e2e8f0 !imp
 html.ff-dark .ff-tab.active { background: #4f46e5 !important; color: #fff !important; border-color: #4f46e5 !important; }
 html.ff-dark .ff-tab-name { color: #64748b !important; }
 html.ff-dark .ff-tab.active .ff-tab-name { color: rgba(255,255,255,0.65) !important; }
+
+html.ff-dark .ff-tab.ff-tab-golden {
+    border-color: rgba(251, 191, 36, 0.3) !important;
+    color: #fbbf24 !important;
+}
+html.ff-dark .ff-tab.ff-tab-golden:hover { 
+    background: rgba(251, 191, 36, 0.08) !important; 
+}
+html.ff-dark .ff-tab.ff-tab-golden.active { 
+    background: linear-gradient(135deg, #fcd34d, #f59e0b) !important; 
+    color: #451a03 !important; 
+    border-color: transparent !important; 
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2) !important;
+}
+html.ff-dark .ff-tab.ff-tab-golden .ff-tab-name { 
+    color: rgba(253, 224, 71, 0.6) !important; 
+}
+html.ff-dark .ff-tab.ff-tab-golden.active .ff-tab-name { 
+    color: rgba(69, 26, 3, 0.7) !important; 
+}
 
 html.ff-dark .ff-progress-card,
 html.ff-dark .ff-card,
