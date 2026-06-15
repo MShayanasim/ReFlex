@@ -2078,10 +2078,6 @@ html.ff-dark .ff-btn-outline:hover {
     }
     
     .ff-print-footer {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
         padding-top: 10px;
         padding-bottom: 15px;
         border-top: 1px dashed #cbd5e1 !important;
@@ -2089,7 +2085,6 @@ html.ff-dark .ff-btn-outline:hover {
         color: #64748b !important;
         text-align: center;
         background: white !important;
-        z-index: 1000;
     }
     
     .ff-print-header {

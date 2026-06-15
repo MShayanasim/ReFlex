@@ -420,8 +420,50 @@ function showMarksEmptyState(root, semesterName) {
     root.appendChild(empty);
 }
 
+function applyBestOfNPreprocessing(marksData) {
+    marksData.forEach(course => {
+        if (!course.categories) return;
+        course.categories.forEach(cat => {
+            if (cat.givenWeightage > 0 && cat.items.length > 0) {
+                let sumWeights = 0;
+                let firstWeight = null;
+                let allSameWeight = true;
+                let gradedItems = [];
+                
+                cat.items.forEach(item => {
+                    if (item.weight > 0) {
+                        sumWeights += item.weight;
+                        if (firstWeight === null) firstWeight = item.weight;
+                        else if (item.weight !== firstWeight) allSameWeight = false;
+                        
+                        if (item.obtained !== null && item.obtained !== undefined && item.total > 0) {
+                            gradedItems.push(item);
+                        }
+                    }
+                });
+
+                if (allSameWeight && firstWeight > 0 && sumWeights > (cat.givenWeightage + 0.01)) {
+                    const N = Math.round(cat.givenWeightage / firstWeight);
+                    if (N > 0 && gradedItems.length > N) {
+                        gradedItems.sort((a, b) => {
+                            const pctA = a.obtained / a.total;
+                            const pctB = b.obtained / b.total;
+                            return pctB - pctA;
+                        });
+                        
+                        for (let i = N; i < gradedItems.length; i++) {
+                            gradedItems[i]._isDropped = true;
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
 function renderMarksDashboard(marksData, changedKeys, options = {}) {
     if (!ffUIEnabled) return;
+    applyBestOfNPreprocessing(marksData);
     
     // Clear old click handler BEFORE wiping DOM to prevent detached closure leaks
     if (_outsideClickHandler) {
@@ -912,45 +954,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
             .trim();
 
         // --- BEST OF N LOGIC PREPROCESSING ---
-        course.categories.forEach(cat => {
-            if (cat.givenWeightage > 0 && cat.items.length > 0) {
-                let sumWeights = 0;
-                let firstWeight = null;
-                let allSameWeight = true;
-                let gradedItems = [];
-                
-                cat.items.forEach(item => {
-                    if (item.weight > 0) {
-                        sumWeights += item.weight;
-                        if (firstWeight === null) firstWeight = item.weight;
-                        else if (item.weight !== firstWeight) allSameWeight = false;
-                        
-                        if (item.obtained !== null && item.obtained !== undefined && item.total > 0) {
-                            gradedItems.push(item);
-                        }
-                    }
-                });
-
-                // Condition 1: Weight distribution exceeds given weightage (adding epsilon for float math)
-                // Condition 2: Weightage is same
-                if (allSameWeight && firstWeight > 0 && sumWeights > (cat.givenWeightage + 0.01)) {
-                    const N = Math.round(cat.givenWeightage / firstWeight);
-                    if (N > 0 && gradedItems.length > N) {
-                        // Sort graded items by percentage descending
-                        gradedItems.sort((a, b) => {
-                            const pctA = a.obtained / a.total;
-                            const pctB = b.obtained / b.total;
-                            return pctB - pctA;
-                        });
-                        
-                        // Drop the lowest items
-                        for (let i = N; i < gradedItems.length; i++) {
-                            gradedItems[i]._isDropped = true;
-                        }
-                    }
-                }
-            }
-        });
+        // (Handled globally by applyBestOfNPreprocessing at the start of renderMarksDashboard)
 
         // Compute overall score for this course
         let totalObtained = 0, totalWeight = 0;
@@ -1286,6 +1290,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
 window.ffRunMarks = (isSilent) => { if (typeof runMarks === 'function') runMarks(isSilent); };
 
 window.updateGrandTotalCardsInDOM = (marksData) => {
+    applyBestOfNPreprocessing(marksData);
     marksData.forEach(course => {
         if (!course.grandTotal) return;
         let gtCard = document.querySelector(`.ff-grand-total-card[data-course-name="${course.courseName.replace(/"/g, '\\"')}"]`);
@@ -1331,13 +1336,15 @@ window.updateGrandTotalCardsInDOM = (marksData) => {
         let totalAvgObtained = 0, avgGradedWeight = 0;
         course.categories.forEach(cat => {
             cat.items.forEach(item => {
-                if (item.obtained !== null && item.obtained !== undefined && item.weight > 0 && item.total > 0) {
-                    totalObtained += (item.obtained / item.total) * item.weight;
-                    totalWeight += item.weight;
-                }
-                if (item.avg !== null && item.avg !== undefined && item.weight > 0 && item.total > 0) {
-                    totalAvgObtained += (item.avg / item.total) * item.weight;
-                    avgGradedWeight += item.weight;
+                if (!item._isDropped) {
+                    if (item.obtained !== null && item.obtained !== undefined && item.weight > 0 && item.total > 0) {
+                        totalObtained += (item.obtained / item.total) * item.weight;
+                        totalWeight += item.weight;
+                    }
+                    if (item.avg !== null && item.avg !== undefined && item.weight > 0 && item.total > 0) {
+                        totalAvgObtained += (item.avg / item.total) * item.weight;
+                        avgGradedWeight += item.weight;
+                    }
                 }
             });
         });
@@ -1531,11 +1538,18 @@ function triggerTranscriptPrint(sems) {
     const userName = document.querySelector('.m-topbar .username, .m-topbar [class*="name"]')?.textContent?.trim() || 'Student';
     
     let html = `
-        <div class="ff-print-header">
-            <h1>Transcript Report</h1>
-            <div class="ff-print-meta">Student: ${esc(userName)} | Generated by ReFlex</div>
-            <hr class="ff-print-hr" />
-        </div>
+        <table style="width: 100%; border-collapse: collapse; border: none; background: transparent;">
+            <thead style="display: table-header-group;">
+                <tr><td style="border: none; padding: 0;">
+                    <div class="ff-print-header">
+                        <h1>Transcript Report</h1>
+                        <div class="ff-print-meta">Student: ${esc(userName)} | Generated by ReFlex</div>
+                        <hr class="ff-print-hr" />
+                    </div>
+                </td></tr>
+            </thead>
+            <tbody style="display: table-row-group;">
+                <tr><td style="border: none; padding: 0;">
     `;
     
     sems.forEach(sem => {
@@ -1591,6 +1605,19 @@ function triggerTranscriptPrint(sems) {
             </div>
         `;
     });
+    
+    html += `
+                </td></tr>
+            </tbody>
+            <tfoot style="display: table-footer-group;">
+                <tr><td style="border: none; padding: 0; padding-top: 20px;">
+                    <div class="ff-print-footer">
+                        <strong>Disclaimer:</strong> This document is generated by ReFlex for informational purposes only and is <strong>not for official use</strong>. Official transcripts are strictly issued by the FAST-NUCES administration.
+                    </div>
+                </td></tr>
+            </tfoot>
+        </table>
+    `;
     
     printContainer.innerHTML = html;
     document.body.appendChild(printContainer);
@@ -2131,6 +2158,7 @@ window.ffRunTutorial = function() {
 
 let _gpaSidebarOpen = false;
 let _gpaSelections = {};
+let _gpaUnlocked = {};
 let _gpaCreditCache = {};
 let _gpaSaveTimer = null;
 const GPA_TIERS_PLANNER = [
@@ -2151,7 +2179,10 @@ function debounceSaveSelections() {
     clearTimeout(_gpaSaveTimer);
     _gpaSaveTimer = setTimeout(() => {
         try {
-            chrome.storage.local.set({ ff_gpa_planner_selections: _gpaSelections });
+            chrome.storage.local.set({ 
+                ff_gpa_planner_selections: _gpaSelections,
+                ff_gpa_planner_unlocked: _gpaUnlocked
+            });
         } catch(e) {}
     }, 500);
 }
@@ -2179,9 +2210,10 @@ window.ffToggleGpaPlanner = function(marksData) {
     root.appendChild(sidebar);
     
     // Read async data
-    chrome.storage.local.get(['ff_credit_cache', 'ff_gpa_planner_selections'], (res) => {
+    chrome.storage.local.get(['ff_credit_cache', 'ff_gpa_planner_selections', 'ff_gpa_planner_unlocked'], (res) => {
         _gpaCreditCache = res.ff_credit_cache || {};
         _gpaSelections = res.ff_gpa_planner_selections || {};
+        _gpaUnlocked = res.ff_gpa_planner_unlocked || {};
         
         // Clean ghost data (selections for courses not in marksData)
         const currentCodes = new Set();
@@ -2191,6 +2223,9 @@ window.ffToggleGpaPlanner = function(marksData) {
         });
         Object.keys(_gpaSelections).forEach(k => {
             if (!currentCodes.has(k)) delete _gpaSelections[k];
+        });
+        Object.keys(_gpaUnlocked).forEach(k => {
+            if (!currentCodes.has(k)) delete _gpaUnlocked[k];
         });
         debounceSaveSelections();
 
@@ -2205,6 +2240,9 @@ window.ffToggleGpaPlanner = function(marksData) {
 };
 
 function renderGpaPlannerUI(marksData, sidebar) {
+    const gpaList = sidebar.querySelector('.ff-gpa-list');
+    const savedScrollTop = gpaList ? gpaList.scrollTop : sidebar.scrollTop;
+
     if (Object.keys(_gpaCreditCache).length === 0) {
         sidebar.innerHTML = `
             <div class="ff-gpa-header">
@@ -2264,7 +2302,7 @@ function renderGpaPlannerUI(marksData, sidebar) {
         let totalObtained = 0, totalWeight = 0, gradedWeight = 0;
         course.categories.forEach(cat => {
             cat.items.forEach(item => {
-                if (item.obtained !== null && item.obtained !== undefined) {
+                if (item.obtained !== null && item.obtained !== undefined && !item._isDropped) {
                     const contrib = (item.weight > 0 && item.total > 0) ? (item.obtained / item.total) * item.weight : 0;
                     totalObtained += contrib;
                     totalWeight += item.weight;
@@ -2279,15 +2317,30 @@ function renderGpaPlannerUI(marksData, sidebar) {
 
         let selectedGpa = _gpaSelections[code];
         if (selectedGpa === undefined) selectedGpa = currentTier.gpa;
-        
-        coursesData.push({ code, cr, currentPct, ungradedWeight, selectedGpa, currentTier });
-
-        const isLocked = ungradedWeight <= 0.01;
+        coursesData.push({ code, cr, currentPct, ungradedWeight, selectedGpa, currentTier, totalObtained });
+        const isLocked = (ungradedWeight <= 0.01) && !_gpaUnlocked[code];
         if (isLocked) {
             // Force selected GPA to exactly what was achieved since no weight remains
             selectedGpa = currentTier.gpa;
             const cObj = coursesData.find(c => c.code === code);
             if (cObj) cObj.selectedGpa = selectedGpa;
+        }
+
+        const maxPossibleAbsolutePct = totalObtained + ungradedWeight;
+        const uniqueTiers = Array.from(new Set(GPA_TIERS_PLANNER.map(t => t.gpa)))
+            .map(gpa => GPA_TIERS_PLANNER.find(t => t.gpa === gpa))
+            .filter(t => t.gpa >= 1.0);
+
+        const hasRestrictions = (ungradedWeight <= 0.01) || uniqueTiers.some(t => !(maxPossibleAbsolutePct >= t.pct || t.gpa <= currentTier.gpa));
+        let unlockIconHtml = '';
+        if (hasRestrictions) {
+            const svgLock = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+            const svgUnlock = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
+            if (_gpaUnlocked[code]) {
+                unlockIconHtml = `<div class="ff-unlock-btn" data-code="${esc(code)}" style="cursor:pointer; display:flex; align-items:center; user-select:none; opacity:0.6; transition:0.2s;" title="Restrictions Disabled (Click to Restore)" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">${svgUnlock}</div>`;
+            } else {
+                unlockIconHtml = `<div class="ff-unlock-btn" data-code="${esc(code)}" style="cursor:pointer; display:flex; align-items:center; user-select:none; opacity:0.4; transition:0.2s;" title="Unlock All Restrictions" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.4'">${svgLock}</div>`;
+            }
         }
 
         html += `
@@ -2296,17 +2349,13 @@ function renderGpaPlannerUI(marksData, sidebar) {
                     <strong>${esc(code)}</strong> - ${esc(displayName)}
                     <div class="ff-planner-row-meta" id="ff-planner-meta-${esc(code)}"></div>
                 </div>
-                <div class="ff-planner-row-action">
+                <div class="ff-planner-row-action" style="display:flex; align-items:center; gap:8px;">
+                    ${unlockIconHtml}
                     <select class="ff-gpa-select" data-code="${esc(code)}" ${isLocked ? 'disabled' : ''}>
         `;
 
-        const maxPossibleAbsolutePct = totalObtained + ungradedWeight;
-        const uniqueTiers = Array.from(new Set(GPA_TIERS_PLANNER.map(t => t.gpa)))
-            .map(gpa => GPA_TIERS_PLANNER.find(t => t.gpa === gpa))
-            .filter(t => t.gpa >= 1.0);
-
         uniqueTiers.sort((a,b) => b.gpa - a.gpa).forEach(t => {
-            const isPossible = maxPossibleAbsolutePct >= t.pct || t.gpa <= currentTier.gpa;
+            const isPossible = maxPossibleAbsolutePct >= t.pct || t.gpa <= currentTier.gpa || _gpaUnlocked[code];
             const labelText = `${t.label} (${t.gpa.toFixed(2)})`;
             if (isPossible || t.gpa === currentTier.gpa) {
                 html += `<option value="${t.gpa}" ${selectedGpa === t.gpa ? 'selected' : ''}>${labelText}</option>`;
@@ -2324,6 +2373,10 @@ function renderGpaPlannerUI(marksData, sidebar) {
 
     html += `</div>`;
     sidebar.innerHTML = html;
+
+    const newList = sidebar.querySelector('.ff-gpa-list');
+    if (newList) newList.scrollTop = savedScrollTop;
+    sidebar.scrollTop = savedScrollTop;
 
     sidebar.querySelector('#ff-gpa-close-btn').addEventListener('click', () => {
         sidebar.style.transform = 'translateX(100%)';
@@ -2346,21 +2399,76 @@ function renderGpaPlannerUI(marksData, sidebar) {
         });
     });
 
+    sidebar.querySelectorAll('.ff-unlock-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const code = e.currentTarget.dataset.code;
+            _gpaUnlocked[code] = !_gpaUnlocked[code];
+            const isNowUnlocked = _gpaUnlocked[code];
+            
+            const cObj = coursesData.find(c => c.code === code);
+            const select = sidebar.querySelector(`.ff-gpa-select[data-code="${code}"]`);
+            if (!cObj || !select) return;
+
+            if (!isNowUnlocked) {
+                delete _gpaSelections[code];
+                cObj.selectedGpa = cObj.currentTier.gpa;
+                select.value = cObj.currentTier.gpa;
+            }
+            debounceSaveSelections();
+
+            const isLocked = (cObj.ungradedWeight <= 0.01) && !isNowUnlocked;
+            if (isLocked) {
+                select.setAttribute('disabled', 'true');
+            } else {
+                select.removeAttribute('disabled');
+            }
+
+            const maxPossibleAbsolutePct = cObj.totalObtained + cObj.ungradedWeight;
+            const uniqueTiers = Array.from(new Set(GPA_TIERS_PLANNER.map(t => t.gpa)))
+                .map(gpa => GPA_TIERS_PLANNER.find(t => t.gpa === gpa))
+                .filter(t => t.gpa >= 1.0);
+            
+            uniqueTiers.sort((a,b) => b.gpa - a.gpa).forEach(t => {
+                const isPossible = maxPossibleAbsolutePct >= t.pct || t.gpa <= cObj.currentTier.gpa || isNowUnlocked;
+                const opt = select.querySelector(`option[value="${t.gpa}"]`);
+                if (opt) {
+                    if (isPossible || t.gpa === cObj.currentTier.gpa) {
+                        opt.removeAttribute('disabled');
+                        opt.textContent = `${t.label} (${t.gpa.toFixed(2)})`;
+                    } else {
+                        opt.setAttribute('disabled', 'true');
+                        opt.textContent = `${t.label} (${t.gpa.toFixed(2)}) (x)`;
+                    }
+                }
+            });
+
+            const svgLock = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+            const svgUnlock = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
+            
+            if (isNowUnlocked) {
+                e.currentTarget.innerHTML = svgUnlock;
+                e.currentTarget.style.opacity = '0.6';
+                e.currentTarget.title = "Restrictions Disabled (Click to Restore)";
+                e.currentTarget.onmouseout = () => e.currentTarget.style.opacity = '0.6';
+            } else {
+                e.currentTarget.innerHTML = svgLock;
+                e.currentTarget.style.opacity = '0.4';
+                e.currentTarget.title = "Unlock All Restrictions";
+                e.currentTarget.onmouseout = () => e.currentTarget.style.opacity = '0.4';
+            }
+
+            recalculateSemesterGpa(coursesData, sidebar);
+        });
+    });
+
     const resetBtn = sidebar.querySelector('#ff-gpa-reset-btn');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
             if (window.confirm("Are you sure you want to revert all projections back to their initial state?")) {
                 _gpaSelections = {};
+                _gpaUnlocked = {};
                 debounceSaveSelections();
-                
-                coursesData.forEach(c => {
-                    c.selectedGpa = c.currentTier.gpa;
-                    const sel = sidebar.querySelector(`.ff-gpa-select[data-code="${esc(c.code)}"]`);
-                    if (sel && !sel.disabled) {
-                        sel.value = c.currentTier.gpa;
-                    }
-                });
-                recalculateSemesterGpa(coursesData, sidebar);
+                renderGpaPlannerUI(marksData, sidebar);
             }
         });
     }
