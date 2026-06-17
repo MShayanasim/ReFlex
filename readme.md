@@ -100,7 +100,7 @@ If you prefer to install the latest developer version manually on any Chromium-b
 
 ### Step 1: Download the Extension
 1. Go to the [Releases page](../../releases) (or click the green **Code** button and select **Download ZIP**).
-2. Download the latest `ReFlex v2.1.0.zip` file.
+2. Download the latest `ReFlex v2.1.3.zip` file.
 3. Extract the downloaded ZIP file to an easily accessible folder on your computer.
 
 ### Step 2: Load into Your Browser

@@ -280,6 +280,7 @@ function tearDown() {
     clearTimeout(failSafeTimer);
     if (window.ffTopbarRetry) { clearInterval(window.ffTopbarRetry); window.ffTopbarRetry = null; }
     if (window.ffGtPoller) { clearInterval(window.ffGtPoller); window.ffGtPoller = null; window.ffAngularReady = false; window.ffStartTime = null; }
+    if (window.ffSyncPoller) { clearInterval(window.ffSyncPoller); window.ffSyncPoller = null; }
     if (scanObserver)  { scanObserver.disconnect();  scanObserver  = null; }
     if (guardObserver) { guardObserver.disconnect(); guardObserver = null; }
     if (window.ffRecaptchaObserver) { window.ffRecaptchaObserver.disconnect(); window.ffRecaptchaObserver = null; }
