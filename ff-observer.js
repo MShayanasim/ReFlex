@@ -204,8 +204,13 @@ function syncSidebar() {
             const link = li.querySelector('a');
             if (link && link.href) {
                 const linkRoute = extractRoute(link.href);
+                
                 // Strict equality guarantees "Marks" doesn't overlap with "Marks PLO Report"
-                if (currentRoute === linkRoute && currentRoute !== '') {
+                // However, Course Registration varies (e.g., /Student/CourseRegistrationBS)
+                const isMatch = (currentRoute === linkRoute && currentRoute !== '') || 
+                                (linkRoute.includes('courseregistration') && currentRoute.includes('courseregistration'));
+
+                if (isMatch) {
                     li.classList.add('m-menu__item--active', 'm-menu__item--open');
                 }
             }

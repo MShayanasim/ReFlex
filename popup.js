@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const OAUTH_CLIENT_ID = '650320840540-bjo54gekj5o1m0s5cmekiq6c86op2f5e.apps.googleusercontent.com';
 
     loginBtn.addEventListener('click', () => {
+        loginBtn.disabled = true;
         loginBtn.textContent = 'Authenticating securely...';
         
         const redirectUri = `https://${chrome.runtime.id}.chromiumapp.org/`;
@@ -60,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     loginBtn.textContent = 'Login with Google';
                     loginBtn.style.backgroundColor = 'var(--accent-color)';
+                    loginBtn.disabled = false;
                 }, 3000);
                 return;
             }
@@ -120,6 +122,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("Secure OAuth Error:", err);
                 loginBtn.textContent = 'Error Authenticating';
                 loginBtn.style.backgroundColor = 'var(--danger-color)';
+                setTimeout(() => {
+                    loginBtn.textContent = 'Login with Google';
+                    loginBtn.style.backgroundColor = 'var(--accent-color)';
+                    loginBtn.disabled = false;
+                }, 3000);
             }
         });
     });

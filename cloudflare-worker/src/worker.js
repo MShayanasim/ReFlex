@@ -196,8 +196,7 @@ export default {
       const apiAccounts = [
         { name: "BREVO_API_KEY_1", key: env.BREVO_API_KEY,   email: "shayanasim.dev@gmail.com" },
         { name: "BREVO_API_KEY_2", key: env.BREVO_API_KEY_2, email: "shaneasim979@gmail.com" },
-        { name: "BREVO_API_KEY_3", key: env.BREVO_API_KEY_3, email: "shaneasim171@gmail.com" }, // Update with your 3rd verified email
-        { name: "BREVO_API_KEY_4", key: env.BREVO_API_KEY_4, email: "shayanasim.dev@gmail.com" }
+        { name: "BREVO_API_KEY_3", key: env.BREVO_API_KEY_3, email: "shaneasim171@gmail.com" } // Update with your 3rd verified email
       ].filter(account => Boolean(account.key)); // Filters out any undefined keys
 
       if (apiAccounts.length === 0) {

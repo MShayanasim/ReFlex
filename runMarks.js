@@ -295,6 +295,9 @@
     // Must be inside runMarks() so it's re-created after each SPA navigation
     // (tearDown() in ff-observer.js clears the poller on every nav change)
     startGtPoller();
+    // ── RESTART FOREGROUND SYNC POLLER ──
+    // Also cleared by tearDown() — must be restarted here for the same reason.
+    if (window.ffStartVisibilityAwarePolling) window.ffStartVisibilityAwarePolling();
     
     // Trigger a silent background sync for older semesters
     if (!isSilent) {

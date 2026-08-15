@@ -822,17 +822,20 @@ function _robustDiffAndSave(marksData, semesterId, semesterName, callback) {
             const syncBadges = _trimForSync(badgeTimestamps);
             try {
                 chrome.storage.sync.set({ ff_badge_timestamps: syncBadges }, () => {
-                    if (chrome.runtime.lastError) {
-                        chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
-                    }
-                    callback(changed, allUpdates, newUpdates.length > 0);
-                });
-                } catch (e) {
                     try {
-                        chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
-                    } catch(err){}
-                    callback(changed, allUpdates, newUpdates.length > 0);
-                }
+                        if (chrome.runtime.lastError) {
+                            chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
+                        }
+                    } catch (err) {} finally {
+                        callback(changed, allUpdates, newUpdates.length > 0);
+                    }
+                });
+            } catch (e) {
+                try {
+                    chrome.storage.local.set({ ff_badge_timestamps: badgeTimestamps });
+                } catch(err){}
+                callback(changed, allUpdates, newUpdates.length > 0);
+            }
             } catch (syncError) {
                 console.error("ReFlex Background: Ghost freeze caught in _robustDiffAndSave", syncError);
                 callback(new Set(), [], false);

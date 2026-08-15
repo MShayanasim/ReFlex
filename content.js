@@ -113,6 +113,7 @@ function startVisibilityAwarePolling() {
         }
     }, 4 * 60 * 1000); // 4 minutes
 }
+window.ffStartVisibilityAwarePolling = startVisibilityAwarePolling;
 startVisibilityAwarePolling();
 
 

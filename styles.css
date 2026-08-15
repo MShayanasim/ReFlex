@@ -620,8 +620,8 @@ html.ff-enabled .m-menu__item {
 
 /* Base style for every link — compact, contained */
 html.ff-enabled .m-menu__item > .m-menu__link {
-    padding: 9px 18px !important;
-    margin: 2px 8px !important;
+    padding: 11px 8px !important;
+    margin: 2px 12px 2px 8px !important;
     border-radius: 8px !important;
     transition: background-color 0.2s ease, color 0.2s ease !important;
     background-color: transparent !important;
@@ -665,9 +665,9 @@ html.ff-enabled .m-menu__item-here {
 /* Icons — softer, smaller */
 html.ff-enabled .m-menu__link-icon {
     color: rgba(255, 255, 255, 0.45) !important;
-    font-size: 1.15rem !important;
+    font-size: 1.4rem !important;
     transition: color 0.2s ease !important;
-    min-width: 28px !important;
+    min-width: 32px !important;
 }
 
 html.ff-enabled .m-menu__item > .m-menu__link:hover .m-menu__link-icon,
@@ -680,16 +680,37 @@ html.ff-enabled .m-menu__link-text {
     color: rgba(255, 255, 255, 0.6) !important;
     font-weight: 500 !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
-    font-size: 0.85rem !important;
+    font-size: 1.05rem !important;
     letter-spacing: 0.01em !important;
     transition: color 0.2s ease !important;
-    white-space: nowrap !important;
+    white-space: normal !important;
+    text-align: center !important;
+    line-height: 1.3 !important;
 }
 
 html.ff-enabled .m-menu__item > .m-menu__link:hover .m-menu__link-text,
 html.ff-enabled .m-menu__item--active > .m-menu__link .m-menu__link-text {
     color: #ffffff !important;
     font-weight: 600 !important;
+}
+
+/* ── Sidebar Custom Scrollbar (mCustomScrollbar Override) ────────────────── */
+/* Light mode thumb (translucent white against dark blue sidebar) */
+html.ff-enabled #m_aside_left .mCS-minimal-dark.mCSB_scrollTools .mCSB_dragger .mCSB_dragger_bar {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+}
+html.ff-enabled #m_aside_left .mCS-minimal-dark.mCSB_scrollTools .mCSB_dragger:active .mCSB_dragger_bar,
+html.ff-enabled #m_aside_left .mCS-minimal-dark.mCSB_scrollTools .mCSB_dragger:hover .mCSB_dragger_bar {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Dark mode thumb (dark slate) */
+html.ff-dark.ff-enabled #m_aside_left .mCS-minimal-dark.mCSB_scrollTools .mCSB_dragger .mCSB_dragger_bar {
+    background-color: #334155 !important;
+}
+html.ff-dark.ff-enabled #m_aside_left .mCS-minimal-dark.mCSB_scrollTools .mCSB_dragger:active .mCSB_dragger_bar,
+html.ff-dark.ff-enabled #m_aside_left .mCS-minimal-dark.mCSB_scrollTools .mCSB_dragger:hover .mCSB_dragger_bar {
+    background-color: #475569 !important;
 }
 
 /* ── Topbar Toggle Switch ────────────────────────────────────────────────── */
@@ -788,6 +809,8 @@ html.ff-enabled .m-menu__item--active > .m-menu__link .m-menu__link-text {
 html.ff-dark body,
 html.ff-dark .m-wrapper,
 html.ff-dark .m-content,
+html.ff-dark .m-page,
+html.ff-dark .m-grid--root,
 html.ff-dark .m-body {
     background-color: #0f1629 !important;
     color: #cbd5e1 !important;
@@ -795,6 +818,8 @@ html.ff-dark .m-body {
 
 html.ff-dark .m-header,
 html.ff-dark #m_header,
+html.ff-dark .m-topbar,
+html.ff-dark .m-header-head,
 html.ff-dark [class*="m-header"] {
     background: #111827 !important;
     border-bottom: 1px solid rgba(255,255,255,0.06) !important;
@@ -830,6 +855,9 @@ html.ff-dark .m-grid__item.m-footer {
 html.ff-dark .m-portlet,
 html.ff-dark .m-portlet__body,
 html.ff-dark .card,
+html.ff-dark .ls-card,
+html.ff-dark .ls-card .card-body,
+html.ff-dark .bg-light,
 html.ff-dark .panel {
     background: #1e293b !important;
     border-color: rgba(255,255,255,0.07) !important;
@@ -837,6 +865,7 @@ html.ff-dark .panel {
 }
 html.ff-dark .m-portlet__head,
 html.ff-dark .card-header,
+html.ff-dark .ls-card .card-header,
 html.ff-dark .panel-heading {
     background: #1a2540 !important;
     border-bottom-color: rgba(255,255,255,0.07) !important;
@@ -844,6 +873,38 @@ html.ff-dark .panel-heading {
 html.ff-dark .m-portlet__head-title,
 html.ff-dark .m-portlet__head-title h3,
 html.ff-dark .m-portlet__head-text { color: #e2e8f0 !important; }
+
+/* ReFlex specific overrides for custom pages (like Course Registration) */
+html.ff-dark .nav-tabs .nav-link {
+    color: #94a3b8;
+    border-bottom-color: transparent;
+    background: transparent !important;
+}
+html.ff-dark .nav-tabs .nav-link.active {
+    color: #60a5fa !important;
+    border-bottom-color: #60a5fa !important;
+    background: transparent !important;
+}
+html.ff-dark .nav-tabs .nav-link:hover {
+    color: #e2e8f0;
+}
+html.ff-dark .summary-badge {
+    background: rgba(56, 189, 248, 0.1) !important;
+    color: #38bdf8 !important;
+}
+html.ff-dark .ls-btn-outline {
+    border-color: rgba(255,255,255,0.2) !important;
+    color: #cbd5e1 !important;
+}
+html.ff-dark .ls-btn-outline:hover {
+    background: rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+}
+
+/* Transcript Semester Stats */
+html.ff-dark .pull-right span {
+    color: #cbd5e1 !important;
+}
 
 html.ff-dark table { color: #cbd5e1 !important; background: #1e293b !important; }
 html.ff-dark th, html.ff-dark thead th, html.ff-dark thead td {
@@ -1481,7 +1542,9 @@ html.ff-dark .ff-updates-empty {
 }
 
 /* ── LOGIN PAGE DARK MODE ───────────────────────────────────────────────*/
-html.ff-dark .m-login__aside {
+html.ff-dark .m-login__aside,
+html.ff-dark .m-login__wrapper,
+html.ff-dark .m-login {
     background: #0f172a !important;
 }
 

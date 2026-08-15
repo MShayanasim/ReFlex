@@ -1,7 +1,7 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// .wrangler/tmp/bundle-zOJAWa/checked-fetch.js
+// .wrangler/tmp/bundle-CIdTY3/checked-fetch.js
 var urls = /* @__PURE__ */ new Set();
 function checkURL(request, init) {
   const url = request instanceof URL ? request : new URL(
@@ -53,7 +53,7 @@ var worker_default = {
           sender: { name: "ReFlex Notifications", email: apiAccounts[i].email },
           to: [{ email: userEmail }],
           subject: `ReFlex Ping - API Key ${i + 1} - [${timestamp}]`,
-          htmlContent: `<p>Ping from API Key ${i + 1} using sender ${apiAccounts[i].email} to keep it active. Time: ${timestamp}</p>`
+          htmlContent: `<p>Manual ping requested on ${timestamp} from API Key ${i + 1} using sender ${apiAccounts[i].email}.</p>`
         })
       });
       const text = await res.text();
@@ -61,7 +61,7 @@ var worker_default = {
     }
     return new Response(JSON.stringify(results), {
       status: 200,
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
   }
 };
@@ -84,7 +84,7 @@ var drainBody = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "drainBody");
 var middleware_ensure_req_body_drained_default = drainBody;
 
-// .wrangler/tmp/bundle-zOJAWa/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-CIdTY3/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default
 ];
@@ -115,13 +115,15 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-zOJAWa/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-CIdTY3/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
     this.cron = cron;
     this.#noRetry = noRetry;
   }
+  scheduledTime;
+  cron;
   static {
     __name(this, "__Facade_ScheduledController__");
   }
