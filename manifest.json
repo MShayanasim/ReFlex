@@ -23,7 +23,7 @@
     {
       "matches": ["*://flexstudent.nu.edu.pk/*"],
       "css": ["styles.css"],
-      "js": ["jspdf.umd.min.js", "jspdf.plugin.autotable.min.js", "ff-observer.js", "ff-attendance.js", "runMarks.js", "runTranscript.js", "content.js"],
+      "js": ["jspdf.umd.min.js", "jspdf.plugin.autotable.min.js", "ff-observer.js", "ff-attendance.js", "runMarks.js", "runTranscript.js", "content.js", "ff-feedback.js"],
       "run_at": "document_start"
     }
   ],

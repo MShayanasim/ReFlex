@@ -854,6 +854,8 @@ html.ff-dark .m-grid__item.m-footer {
 
 html.ff-dark .m-portlet,
 html.ff-dark .m-portlet__body,
+html.ff-dark .m-demo,
+html.ff-dark .m-demo__preview,
 html.ff-dark .card,
 html.ff-dark .ls-card,
 html.ff-dark .ls-card .card-body,
@@ -938,10 +940,18 @@ html.ff-dark textarea::placeholder { color: #64748b !important; }
 html.ff-dark select option { background: #1e293b; color: #e2e8f0; }
 
 html.ff-dark .btn-default,
-html.ff-dark .btn-secondary {
+html.ff-dark .btn-secondary,
+html.ff-dark button:not([class]),
+html.ff-dark table td button {
     background: #263447 !important;
-    border-color: rgba(255,255,255,0.1) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
     color: #e2e8f0 !important;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+html.ff-dark button:not([class]):hover,
+html.ff-dark table td button:hover {
+    background: #334155 !important;
 }
 
 html.ff-dark .m-subheader,
@@ -1109,6 +1119,8 @@ html.ff-dark .m-portlet--light {
 
 /* ── Dark Mode: Attendance percentage bar text (native) ──────────────────── */
 html.ff-dark .m-list-timeline__text,
+html.ff-dark .m-radio,
+html.ff-dark .m-checkbox,
 html.ff-dark .progress-bar,
 html.ff-dark [class*="progress"] { color: #e2e8f0 !important; }
 
