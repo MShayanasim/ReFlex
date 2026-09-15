@@ -1,5 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const toggle = document.getElementById('masterToggle');
+    const versionDisplay = document.getElementById('versionDisplay');
+    if (versionDisplay) {
+        const manifest = chrome.runtime.getManifest();
+        versionDisplay.textContent = `v${manifest.version}`;
+    }
     const loginSection = document.getElementById('loginSection');
     const loggedInSection = document.getElementById('loggedInSection');
     const loginBtn = document.getElementById('loginBtn');
@@ -18,15 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Load initial state for toggle
-    chrome.storage.sync.get(['flexUiEnabled'], (result) => {
-        if (chrome.runtime.lastError) {
-            console.warn('ReFlex: Could not load settings.', chrome.runtime.lastError.message);
-            return;
-        }
-        // Default to true if not set
-        toggle.checked = result.flexUiEnabled !== false; 
-    });
+
 
     // Check if user is logged in
     chrome.storage.local.get(['userEmail'], (result) => {
@@ -150,23 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Save state on change for UI overhaul
-    toggle.addEventListener('change', () => {
-        const isEnabled = toggle.checked;
-        chrome.storage.sync.set({ flexUiEnabled: isEnabled }, () => {
-            if (chrome.runtime.lastError) {
-                console.warn('ReFlex: Could not save setting.', chrome.runtime.lastError.message);
-                return;
-            }
-            // Reload the active tab so the change takes effect
-            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                if (tabs[0]) {
-                    try { chrome.tabs.reload(tabs[0].id); }
-                    catch (e) { /* tab may have navigated away */ }
-                }
-            });
-        });
-    });
+
 
     // Replay Tutorial logic
     const replayBtn = document.getElementById('replayBtn');

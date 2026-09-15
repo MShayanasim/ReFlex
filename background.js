@@ -5,6 +5,9 @@ const BADGE_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000;
 
 chrome.runtime.onInstalled.addListener(() => {
     setupAlarm();
+    
+    // Set the Tally form as the uninstall feedback URL
+    chrome.runtime.setUninstallURL("https://tally.so/r/LZexW1");
 });
 
 chrome.runtime.onStartup.addListener(() => {

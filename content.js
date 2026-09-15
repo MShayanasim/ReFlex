@@ -391,6 +391,14 @@ function hideNative() {
 const _crCache = {};
 window.ffGetCreditHours = (code) => _crCache[code] ?? null;
 
+try {
+    chrome.storage.local.get(['ff_credit_cache'], (res) => {
+        if (res.ff_credit_cache) {
+            Object.assign(_crCache, res.ff_credit_cache);
+        }
+    });
+} catch(e) {}
+
 window.ffTearDownMarks = function() {
     if (_outsideClickHandler) {
         document.removeEventListener('click', _outsideClickHandler);
