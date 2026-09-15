@@ -1039,6 +1039,22 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
         const tierGpa = tier.gpa.toFixed(2);
         const gs = gradeStyle(tier.label);
 
+        const thresholdsHtml = `
+            <div class="ff-thresholds">
+                ${GPA_TIERS.filter(t => t.pct > 0).map(t => {
+                    const hideLine = Math.abs(t.pct - overallPct) < 1.0 || (classAvgPct > 0 && Math.abs(t.pct - classAvgPct) < 1.0);
+                    const isGolden = t.label === tier.label;
+                    return `
+                    <div class="ff-threshold" style="left: ${t.pct}%">
+                        <div class="ff-threshold-line" style="${hideLine ? 'opacity: 0 !important;' : ''}"></div>
+                        <span class="ff-threshold-pct ${isGolden ? 'ff-threshold-golden' : ''}">${t.pct}</span>
+                        <span class="ff-threshold-label ${isGolden ? 'ff-threshold-golden' : ''}">${t.label}</span>
+                    </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
         overallCard.innerHTML = `
             <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 1.4rem; font-weight: 600;">${esc(displayName)}</h3>
             <div class="ff-oa-label">OVERALL PERFORMANCE</div>
@@ -1067,6 +1083,7 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
                         <div class="ff-ptr-line-avg"></div>
                         <span class="ff-ptr-label">Class Avg ${classAvgPct.toFixed(2)}%</span>
                     </div>` : ''}
+                    ${thresholdsHtml}
                 </div>
             </div>
             <div class="ff-stats-row">
