@@ -341,10 +341,22 @@ const GRADE_COLOURS = {
     'F':  { bg: 'rgba(239,68,68,0.15)',   border: 'rgba(239,68,68,0.4)',   text: '#7f1d1d' },
     'I':  { bg: 'rgba(156,163,175,0.15)', border: 'rgba(156,163,175,0.3)', text: '#4b5563' },
     'W':  { bg: 'rgba(156,163,175,0.15)', border: 'rgba(156,163,175,0.3)', text: '#4b5563' },
+    'S':  { bg: 'rgba(16,185,129,0.10)',  border: 'rgba(16,185,129,0.25)', text: '#065f46' },
+    'U':  { bg: 'rgba(239,68,68,0.10)',   border: 'rgba(239,68,68,0.25)',  text: '#991b1b' },
 };
 function gradeStyle(grade) {
     const g = (grade || '').toUpperCase().trim();
     return GRADE_COLOURS[g] || { bg: 'rgba(100,116,139,0.1)', border: 'rgba(100,116,139,0.25)', text: '#475569' };
+}
+
+// Non-GPA grades — excluded from SGPA/CGPA calculation (pass/fail, non-credit, incomplete, withdrawn)
+const NON_GPA_GRADES = new Set(['-', 'I', 'W', 'NC', 'S', 'U']);
+function isGpaGrade(grade, remarks, type) {
+    const g = (grade || '').trim().toUpperCase();
+    if (!g || NON_GPA_GRADES.has(g)) return false;
+    if ((remarks || '').trim().toUpperCase() === 'NC') return false;
+    if ((type || '').trim().toUpperCase() === 'NON CREDIT') return false;
+    return true;
 }
 
 // GPA tiers (for projection)
@@ -1612,7 +1624,7 @@ function triggerTranscriptPrint(sems) {
                 const pts = parseFloat(c.points) || 0;
                 let gpaText = 'N/A';
                 const gradeUpper = (c.grade || '').trim().toUpperCase();
-                if (gradeUpper && gradeUpper !== '-' && gradeUpper !== 'I' && gradeUpper !== 'W' && gradeUpper !== 'NC' && (c.remarks || '').trim().toUpperCase() !== 'NC' && (c.type || '').trim().toUpperCase() !== 'NON CREDIT') {
+                if (isGpaGrade(c.grade, c.remarks, c.type)) {
                     gpaText = pts.toFixed(2);
                 }
                 return [
@@ -1802,13 +1814,13 @@ function renderTranscriptDashboard(semesters) {
             const type = (c.type || '').trim().toUpperCase();
 
             // Cache credit hours for all valid courses (even ongoing ones with '-' grade)
-            if (cr > 0 && type !== 'NON CREDIT' && remarks !== 'NC') {
+            if (cr > 0 && type !== 'NON CREDIT' && remarks !== 'NC' && grade !== 'NC' && grade !== 'S' && grade !== 'U') {
                 const codeMatch = c.code.match(/^([A-Z]{2,4}\d{4})/i);
                 if (codeMatch) _crCache[codeMatch[1].toUpperCase()] = cr;
             }
 
             // Ignore incomplete, withdrawn, or non-credit courses for GPA calculation
-            if (cr > 0 && grade && grade !== '-' && grade !== 'I' && grade !== 'W' && grade !== 'NC' && remarks !== 'NC' && type !== 'NON CREDIT') {
+            if (cr > 0 && isGpaGrade(grade, remarks, type)) {
                 semPoints += pts * cr;
                 semCrHrs  += cr;
                 runningPoints += pts * cr;
@@ -1867,7 +1879,7 @@ function renderTranscriptDashboard(semesters) {
             
             let weightPct = '';
             let contribPts = '';
-            if (cr > 0 && sem.semCrHrs > 0) {
+            if (cr > 0 && sem.semCrHrs > 0 && isGpaGrade(c.grade, c.remarks, c.type)) {
                 weightPct = ((cr / sem.semCrHrs) * 100).toFixed(1) + '% of SGPA';
                 if (pts > 0) {
                     contribPts = ((pts * cr) / sem.semCrHrs).toFixed(3) + ' pts to SGPA';
@@ -1876,7 +1888,7 @@ function renderTranscriptDashboard(semesters) {
 
             let gpaText = '<span style="opacity: 0.5;">N/A</span>';
             const gradeUpper = (c.grade || '').trim().toUpperCase();
-            if (gradeUpper && gradeUpper !== '-' && gradeUpper !== 'I' && gradeUpper !== 'W' && gradeUpper !== 'NC' && (c.remarks || '').trim().toUpperCase() !== 'NC' && (c.type || '').trim().toUpperCase() !== 'NON CREDIT') {
+            if (isGpaGrade(c.grade, c.remarks, c.type)) {
                 gpaText = pts.toFixed(2) + ' <span style="font-size: 0.85rem; opacity: 0.6; font-weight: 600; font-family: \'Inter\', sans-serif;">GPA</span>';
             }
 
