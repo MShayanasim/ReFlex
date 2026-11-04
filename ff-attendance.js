@@ -62,6 +62,89 @@ function enhanceAttendanceTables() {
     });
 }
 
+// ─ Universal English + Desi student warning message pools ─
+const DESI_WARNS = {
+    drop: [
+        'Drop scenez. You exceeded the allowed offs.',
+        'Jeo ustaad. Aur bunk maaro.',
+        'Exceeded the {maxAbsents} offs limit. Mubarak ho, repeat confirmed 🤝',
+        'Attendance short ho chuki hai. Good luck explaining this to your parents.',
+        'Drop it before it drops your GPA.',
+        'Limit cross ho chuki hai. Aglay saal milte hain.',
+        'Nalaik insaan, {maxAbsents} offs khatam ho chuki hain aur abhi bhi bunk maar rahe ho.'
+    ],
+    0: [
+        'Itni azaadi kisne di thi bhai? Last line pe kharay ho.',
+        'You\'ve used all {maxAbsents} offs. Good luck buddy.',
+        'Ab wheelchair pe bhi aana pare toh class aao, there\'s literally no margin left.',
+        'Subah 8 baje ki neend pyari hai ya repeat ki fee?',
+        'Boundary line pe kharay ho, one more bunk and it\'s over.',
+        'No more offs allowed. Khuda ka khof karo aur class jao.'
+    ],
+    1: [
+        'Sirf 1 off bacha hai. Chill out on the bunks.',
+        'Bhai seedhi baat hai, you only have 1 off left before you\'re on the edge.',
+        'One more off and you hit the {maxAbsents} offs limit.',
+        'Thora dimagh chala lo, save this last off for an emergency.',
+        'Sirf 1 off reh gaya hai out of {maxAbsents}, don\'t waste it.'
+    ],
+    2: [
+        'Sirf 2 offs bache hain, scene tight ho raha hai.',
+        'You\'re burning through your offs way too fast.',
+        '2 offs left out of {maxAbsents}. Bhai ab thora sambhal jao.',
+        'Dhabba baad mein chale jana, attendance bacha lo abhi.'
+    ],
+    3: [
+        'Scene thora off lag raha hai, {absents} offs already ho chuki hain.',
+        'Itna chill scene kahan se laate ho bhai? {absents} offs ho chuki hain.',
+        '{remaining} left before drop scenez. Don\'t push it.',
+        'Classes attend karna shuru kar do abhi se.'
+    ]
+};
+
+function getWarningMessage(table, absents, warnAt, maxAbsents, forceNew = false) {
+    const rawRemaining = maxAbsents - absents;
+    const remaining = Math.round(rawRemaining * 10) / 10;
+    let tierKey;
+    if (remaining < 0) {
+        tierKey = 'drop';
+    } else if (remaining <= 0) {
+        tierKey = 0;
+    } else if (remaining <= 1) {
+        tierKey = 1;
+    } else if (remaining <= 2) {
+        tierKey = 2;
+    } else {
+        tierKey = 3;
+    }
+
+    // Return cached message if not forced, same tier, AND absents haven't changed
+    if (!forceNew && table._ffCachedWarnKey === tierKey && table._ffCachedAbsents === absents && table._ffCachedWarnMsg) {
+        return table._ffCachedWarnMsg;
+    }
+
+    const pool = DESI_WARNS[tierKey];
+    // Exclude the currently displayed template so re-rolling always produces a new line
+    const currentTemplate = table._ffCachedRawTemplate;
+    const available = (forceNew && pool.length > 1 && currentTemplate)
+        ? pool.filter(t => t !== currentTemplate)
+        : pool;
+    const candidates = available.length > 0 ? available : pool;
+    const rawTemplate = candidates[Math.floor(Math.random() * candidates.length)];
+    const remainingStr = remaining === 1 ? '1 off' : `${Math.max(0, remaining)} offs`;
+
+    const finalMsg = rawTemplate
+        .replace(/{remaining}/g, remainingStr)
+        .replace(/{absents}/g, absents)
+        .replace(/{maxAbsents}/g, maxAbsents);
+
+    table._ffCachedWarnKey = tierKey;
+    table._ffCachedAbsents = absents;
+    table._ffCachedRawTemplate = rawTemplate;
+    table._ffCachedWarnMsg = finalMsg;
+    return finalMsg;
+}
+
 // ── Build and inject the info bar ─────────────────────────────────────────
 function buildBar(table, presenceIdx, durationIdx) {
     // ─ detect credit hours from nearby heading ─
@@ -84,14 +167,6 @@ function buildBar(table, presenceIdx, durationIdx) {
     const absents = absentHours; // alias for readability below
     const danger  = absents >= warnAt;
 
-    // ─ warning messages ─
-    const WARNS = [
-        'Gang you are cooked! 💀',
-        'Yikes. Talk to your teacher. 💀',
-        'Bro. Please just go to class. 😭',
-        'At this point just drop it. 💀'
-    ];
-
     // ─ detect current theme ─
     const isDark = document.documentElement.classList.contains('ff-dark');
 
@@ -106,19 +181,60 @@ function buildBar(table, presenceIdx, durationIdx) {
         'border-radius:5px', 'font-size:0.875rem', 'font-family:inherit'
     ].join(';');
 
+    // ─ Modern Heatmap Tier Color Palette ─
+    const remaining = maxAbsents - absents;
+    let tierKey;
+    if (remaining < 0)       tierKey = 'drop';
+    else if (remaining <= 0) tierKey = 0;
+    else if (remaining <= 1) tierKey = 1;
+    else if (remaining <= 2) tierKey = 2;
+    else                     tierKey = 3;
+
+    const TIER_COLORS = {
+        drop: { dark: '#f87171', light: '#b91c1c' }, // Deep Velvet Red (Exceeded limit)
+        0:    { dark: '#ef4444', light: '#dc2626' }, // Bright Crimson (0 offs left)
+        1:    { dark: '#f43f5e', light: '#e11d48' }, // Vivid Rose (1 off left)
+        2:    { dark: '#fb923c', light: '#ea580c' }, // Warm Peach / Coral (2 offs left)
+        3:    { dark: '#38bdf8', light: '#0284c7' }  // Sky Blue (3+ offs left)
+    };
+
+    const activeColor = danger
+        ? (isDark ? TIER_COLORS[tierKey].dark : TIER_COLORS[tierKey].light)
+        : (isDark ? '#94a3b8' : '#2c3e50');
+
     // Counter pill
     const counter = document.createElement('span');
-    let counterColor;
-    if (danger)    counterColor = isDark ? '#f87171' : '#c0392b';
-    else           counterColor = isDark ? '#94a3b8' : '#2c3e50';
-    counter.style.cssText = `font-weight:700;color:${counterColor};`;
+    counter.style.cssText = `font-weight:700;color:${activeColor};`;
     counter.textContent = `Absent Hours: ${absents} / ${maxAbsents}h`;
 
     // Warning message
     const warn = document.createElement('span');
     if (danger) {
-        warn.style.cssText = `color:${isDark ? '#f87171' : '#e74c3c'};font-weight:700;font-style:italic;`;
-        warn.textContent = WARNS[Math.max(0, Math.min(absents - warnAt, WARNS.length - 1))];
+        warn.style.cssText = [
+            `color:${activeColor}`,
+            'font-weight:700',
+            'font-style:italic',
+            'cursor:pointer',
+            'user-select:none',
+            'display:inline-block',
+            'transition:transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease'
+        ].join(';');
+        warn.title = 'Click to roll';
+        warn.textContent = getWarningMessage(table, absents, warnAt, maxAbsents);
+
+        let isRolling = false;
+        warn.addEventListener('click', () => {
+            if (isRolling) return;
+            isRolling = true;
+            warn.style.transform = 'scale(0.92)';
+            warn.style.opacity = '0.5';
+            setTimeout(() => {
+                warn.textContent = getWarningMessage(table, absents, warnAt, maxAbsents, true);
+                warn.style.transform = 'scale(1)';
+                warn.style.opacity = '1';
+                setTimeout(() => { isRolling = false; }, 140);
+            }, 120);
+        });
     }
 
     // Filter button
@@ -154,6 +270,9 @@ function buildBar(table, presenceIdx, durationIdx) {
     if (danger) bar.appendChild(warn);
     bar.appendChild(sortBtn);
 
+    while (table.previousElementSibling && table.previousElementSibling.classList.contains('ff-att-bar')) {
+        table.previousElementSibling.remove();
+    }
     table.parentNode.insertBefore(bar, table);
 }
 
