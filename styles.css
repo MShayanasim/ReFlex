@@ -928,6 +928,13 @@ html.ff-dark .m-grid__item.m-footer {
     border-top: 1px solid rgba(255,255,255,0.05) !important;
     color: #64748b !important;
 }
+html.ff-dark .m-footer .m-container {
+    background: transparent !important;
+}
+html.ff-dark .m-footer span,
+html.ff-dark .m-footer .m-footer__copyright {
+    color: #64748b !important;
+}
 
 html.ff-dark .m-portlet,
 html.ff-dark .m-portlet__body,

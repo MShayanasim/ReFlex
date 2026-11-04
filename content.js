@@ -118,8 +118,83 @@ startVisibilityAwarePolling();
 
 
 // ══════════════════════════════════════════════════════════════════════════
-// 2. TOPBAR TOGGLE — UI switch + dark/light theme switch injected into nav
+// 2. THEME & TOPBAR TOGGLE — Instant single-frame switch + topbar injection
 // ══════════════════════════════════════════════════════════════════════════
+
+let _themeTransitionRaf = null;
+let _themeTransitionTimeout = null;
+
+function ffToggleTheme() {
+    if (_themeTransitionRaf) {
+        cancelAnimationFrame(_themeTransitionRaf);
+        _themeTransitionRaf = null;
+    }
+    if (_themeTransitionTimeout) {
+        clearTimeout(_themeTransitionTimeout);
+        _themeTransitionTimeout = null;
+    }
+
+    const removeLock = () => {
+        const el = document.getElementById('ff-transition-lock');
+        if (el) el.remove();
+        _themeTransitionRaf = null;
+        if (_themeTransitionTimeout) {
+            clearTimeout(_themeTransitionTimeout);
+            _themeTransitionTimeout = null;
+        }
+    };
+
+    // Single-frame transition-lock: Temporarily suppress all transitions across the entire DOM
+    let lock = document.getElementById('ff-transition-lock');
+    if (!lock) {
+        lock = document.createElement('style');
+        lock.id = 'ff-transition-lock';
+        lock.textContent = `
+            *, *::before, *::after {
+                -webkit-transition: none !important;
+                -moz-transition: none !important;
+                -o-transition: none !important;
+                -ms-transition: none !important;
+                transition: none !important;
+            }
+        `;
+        (document.head || document.documentElement).appendChild(lock);
+    }
+
+    const nowDark = document.documentElement.classList.toggle('ff-dark');
+
+    // Synchronize all theme switch buttons on the page
+    document.querySelectorAll('.ff-theme-switch').forEach(btn => {
+        btn.classList.toggle('dark', nowDark);
+        const icon = btn.querySelector('.ff-theme-icon');
+        if (icon) icon.textContent = nowDark ? '☀️' : '🌙';
+        btn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    });
+
+    // Force synchronous reflow so every element commits and renders in this exact single frame
+    void (document.documentElement ? document.documentElement.offsetHeight : 0);
+
+    // Re-enable normal UI transitions after paint flushes
+    _themeTransitionRaf = requestAnimationFrame(() => {
+        _themeTransitionRaf = requestAnimationFrame(removeLock);
+    });
+
+    // Fallback timer: guarantees removal within 200ms even if tab is switched/inactive
+    _themeTransitionTimeout = setTimeout(removeLock, 200);
+
+    // Persist theme state
+    try {
+        chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' }, () => {
+            if (chrome.runtime.lastError) { /* ignore */ }
+        });
+    } catch (e) {
+        console.warn('ReFlex: Could not save theme state (Extension context invalidated). Please refresh the page.');
+    }
+
+    // Dispatch event for other components (e.g. recaptcha-themer)
+    window.dispatchEvent(new CustomEvent('ff-theme-changed', { detail: { isDark: nowDark } }));
+}
+window.ffToggleTheme = ffToggleTheme;
 
 function ffInjectTopbarToggle() {
     if (document.getElementById('ff-topbar-controls')) return;
@@ -209,20 +284,8 @@ function ffInjectTopbarToggle() {
     themeBtn.className = 'ff-theme-switch' + (isDark ? ' dark' : '');
     themeBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
     themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? '☀️' : '🌙'}</span>`;
-        themeBtn.addEventListener('click', () => {
-        const nowDark = document.documentElement.classList.toggle('ff-dark');
-        themeBtn.classList.toggle('dark', nowDark);
-        themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? '☀️' : '🌙';
-        themeBtn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-        
-        // ONLY the storage call goes in the try-catch
-        try {
-            chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' }, () => {
-                if (chrome.runtime.lastError) { /* ignore */ }
-            });
-        } catch (e) {
-            console.warn('ReFlex: Could not save theme state (Extension context invalidated). Please refresh the page.');
-        }
+    themeBtn.addEventListener('click', () => {
+        ffToggleTheme();
     });
 
 
@@ -248,20 +311,7 @@ function ffInjectLoginToggle() {
     themeBtn.innerHTML = `<span class="ff-theme-icon">${isDark ? '☀️' : '🌙'}</span>`;
     
     themeBtn.addEventListener('click', () => {
-        const nowDark = document.documentElement.classList.toggle('ff-dark');
-        themeBtn.classList.toggle('dark', nowDark);
-        themeBtn.querySelector('.ff-theme-icon').textContent = nowDark ? '☀️' : '🌙';
-        themeBtn.title = nowDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-        
-        try {
-            chrome.storage.sync.set({ ffTheme: nowDark ? 'dark' : 'light' }, () => {
-                if (chrome.runtime.lastError) { /* ignore */ }
-            });
-        } catch (e) {
-            console.warn('ReFlex: Could not save theme state.');
-        }
-
-        window.dispatchEvent(new CustomEvent('ff-theme-changed', { detail: { isDark: nowDark } }));
+        ffToggleTheme();
     });
 
     document.body.appendChild(themeBtn);
