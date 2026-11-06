@@ -83,10 +83,10 @@
 }
 .ff-tab:hover { background:#f8fafc; color:#334155; }
 .ff-tab.active {
-    background: #4f46e5;
+    background: #2563EB;
     color: #fff;
-    border-color: #4f46e5;
-    box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+    border-color: #1D4ED8;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.22);
 }
 /* Course code — bold top line */
 .ff-tab-code {
@@ -187,7 +187,7 @@
 }
 .ff-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #38bdf8, #4f46e5);
+    background: linear-gradient(90deg, #0284C7, #2563EB);
     border-radius: 10px;
     transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
 }
@@ -287,7 +287,7 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
 .ff-ptr-line-me {
     width: 2px;
     height: 40px; /* spans from label into bar */
-    background: #4f46e5;
+    background: #2563EB;
     border-radius: 2px;
 }
 .ff-ptr-label-me {
@@ -295,7 +295,7 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
     top: -20px;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #4f46e5;
+    color: #2563EB;
     white-space: nowrap;
 }
 
@@ -351,8 +351,8 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
 .ff-weight-badge {
     font-size: 0.78rem;
     font-weight: 600;
-    color: #4f46e5;
-    background: rgba(79,70,229,0.08);
+    color: #2563EB;
+    background: rgba(37, 99, 235, 0.08);
     padding: 4px 10px;
     border-radius: 6px;
 }
@@ -426,8 +426,8 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
 .ff-item-val   { font-weight: 600; color: #1e293b; }
 .ff-item-avg   { color: #94a3b8; min-width: 70px; text-align: right; }
 .ff-item-minmax {
-    color: #a855f7;
-    background: rgba(168, 85, 247, 0.1);
+    color: #0284C7;
+    background: rgba(2, 132, 199, 0.08);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.75rem;
@@ -438,9 +438,9 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
 .ff-item-weightage {
     font-size: 0.72rem;
     font-weight: 700;
-    color: #4f46e5;
-    background: rgba(79,70,229,0.07);
-    border: 1px solid rgba(79,70,229,0.15);
+    color: #2563EB;
+    background: rgba(37, 99, 235, 0.07);
+    border: 1px solid rgba(37, 99, 235, 0.15);
     padding: 2px 7px;
     border-radius: 5px;
     white-space: nowrap;
@@ -508,9 +508,9 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
     justify-content: center;
     width: 64px; height: 64px;
     border-radius: 50%;
-    border: 3px solid rgba(79,70,229,0.25);
-    background: rgba(79,70,229,0.04);
-    box-shadow: 0 0 12px rgba(79,70,229,0.12);
+    border: 3px solid rgba(37, 99, 235, 0.22);
+    background: rgba(37, 99, 235, 0.04);
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.1);
 }
 .ff-ring span  { font-size: 1.1rem; font-weight: 700; color: #1e293b; }
 .ff-ring small { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
@@ -531,7 +531,7 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
 .ff-course-name { font-size: 1rem; font-weight: 600; color: #1e293b; margin-bottom: 5px; }
 .ff-course-meta { font-size: 0.85rem; color: #94a3b8; }
 .ff-weight-text {
-    color: #6366f1;
+    color: #2563EB;
     margin-left: 10px;
     font-style: italic;
     font-weight: 500;
@@ -610,35 +610,35 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
 .ff-tier-sel {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #4f46e5;
-    background: rgba(79,70,229,0.07);
-    border: 1px solid rgba(79,70,229,0.2);
+    color: #2563EB;
+    background: rgba(37, 99, 235, 0.07);
+    border: 1px solid rgba(37, 99, 235, 0.2);
     border-radius: 8px;
     padding: 4px 8px;
     cursor: pointer;
     outline: none;
     appearance: none;
     -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234f46e5'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%232563eb'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 8px center;
     padding-right: 22px;
 }
-.ff-tier-sel:hover { background-color: rgba(79,70,229,0.12); }
+.ff-tier-sel:hover { background-color: rgba(37, 99, 235, 0.12); }
 /* "Need +X% → A- (3.67)" pill */
 .ff-gpa-next {
     font-size: 0.9rem;
     font-weight: 700;
-    color: #4f46e5;
-    background: rgba(79,70,229,0.08);
-    border: 1px solid rgba(79,70,229,0.2);
+    color: #2563EB;
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.2);
     padding: 6px 14px;
     border-radius: 20px;
     cursor: help;
     transition: background 0.15s;
 }
 .ff-gpa-next:hover {
-    background: rgba(79,70,229,0.14);
+    background: rgba(37, 99, 235, 0.14);
 }
 /* Already at A */
 .ff-gpa-top {
@@ -811,9 +811,9 @@ html.ff-dark.ff-enabled #m_aside_left .mCS-minimal-dark.mCSB_scrollTools .mCSB_d
 }
 
 .ff-switch.on {
-    background: linear-gradient(135deg, #6366f1, #a855f7);
+    background: linear-gradient(135deg, #2563EB, #0284C7);
     border-color: transparent;
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
 }
 
 .ff-switch-thumb {
@@ -1834,7 +1834,7 @@ html.ff-dark .ff-subject-gpa { color: #F4EDE0 !important; }
 }
 .ff-updates-drawer-row-course {
     font-weight: 700;
-    color: #4f46e5;
+    color: #2563EB;
 }
 .ff-updates-drawer-row-item {
     color: #475569;
@@ -1873,7 +1873,7 @@ html.ff-dark .ff-subject-gpa { color: #F4EDE0 !important; }
     padding: 6px 18px;
     font-size: 0.8rem;
     font-weight: 600;
-    color: #4f46e5;
+    color: #2563EB;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -1884,7 +1884,7 @@ html.ff-dark .ff-subject-gpa { color: #F4EDE0 !important; }
 }
 .ff-updates-pull-tab:hover {
     background: #f8fafc;
-    color: #3730a3;
+    color: #1D4ED8;
     padding-top: 8px;
     bottom: -34px;
 }
@@ -1898,13 +1898,13 @@ html.ff-dark .ff-subject-gpa { color: #F4EDE0 !important; }
 
 /* ── Glow / Pulse Highlight effect ───────────────────────── */
 @keyframes ff-pulse-glow {
-    0% { background-color: rgba(79, 70, 229, 0.25); border-left-color: #4f46e5; }
-    50% { background-color: rgba(79, 70, 229, 0.12); }
+    0% { background-color: rgba(37, 99, 235, 0.22); border-left-color: #2563EB; }
+    50% { background-color: rgba(37, 99, 235, 0.1); }
     100% { background-color: transparent; }
 }
 .ff-pulse-highlight {
     animation: ff-pulse-glow 2s ease-out;
-    border-left: 3px solid #4f46e5;
+    border-left: 3px solid #2563EB;
     padding-left: 8px;
 }
 
@@ -2002,11 +2002,11 @@ html.ff-dark .ff-login-theme-switch {
 .ff-grand-total-card {
     grid-column: 1 / -1;
     margin-top: 32px;
-    background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+    background: linear-gradient(135deg, #1E40AF 0%, #0284C7 100%);
     border-radius: 16px;
     padding: 24px;
     color: #ffffff;
-    box-shadow: 0 10px 25px rgba(79, 70, 229, 0.25);
+    box-shadow: 0 10px 25px rgba(30, 64, 175, 0.22);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .ff-gt-header {
@@ -2259,8 +2259,8 @@ html.ff-dark .ff-gpa-select:focus {
     color: #334155;
 }
 .ff-semester-selector:focus-visible {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 .ff-semester-selector .ff-semester-chevron {
     font-size: 0.6rem;
@@ -2326,12 +2326,12 @@ html.ff-dark .ff-gpa-select:focus {
     color: #1e293b;
 }
 .ff-semester-option.active {
-    background: #4f46e5;
+    background: #2563EB;
     color: #ffffff;
     font-weight: 600;
 }
 .ff-semester-option.active:hover {
-    background: #4338ca;
+    background: #1D4ED8;
     color: #ffffff;
 }
 
@@ -2340,13 +2340,13 @@ html.ff-dark .ff-gpa-select:focus {
     display: flex;
     align-items: center;
     gap: 12px;
-    background: rgba(79,70,229,0.08);
-    border: 1px solid rgba(79,70,229,0.2);
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.2);
     border-radius: 10px;
     padding: 12px 18px;
     font-size: 0.85rem;
     font-weight: 500;
-    color: #4f46e5;
+    color: #2563EB;
     margin-bottom: 20px;
     transition: opacity 0.25s ease;
 }
@@ -2362,9 +2362,9 @@ html.ff-dark .ff-gpa-select:focus {
     flex-shrink: 0;
     padding: 5px 14px;
     border-radius: 6px;
-    border: 1px solid rgba(79,70,229,0.3);
-    background: rgba(79,70,229,0.1);
-    color: #4f46e5;
+    border: 1px solid rgba(37, 99, 235, 0.3);
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563EB;
     font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
@@ -2372,19 +2372,19 @@ html.ff-dark .ff-gpa-select:focus {
     white-space: nowrap;
 }
 .ff-semester-notice-btn:hover {
-    background: rgba(79,70,229,0.18);
-    border-color: rgba(79,70,229,0.45);
+    background: rgba(37, 99, 235, 0.18);
+    border-color: rgba(37, 99, 235, 0.45);
 }
 .ff-semester-notice-dismiss {
     flex-shrink: 0;
     font-size: 1rem;
-    color: rgba(79,70,229,0.5);
+    color: rgba(37, 99, 235, 0.5);
     cursor: pointer;
     transition: color 0.15s;
     line-height: 1;
 }
 .ff-semester-notice-dismiss:hover {
-    color: #4f46e5;
+    color: #2563EB;
 }
 
 /* ── Empty State (new students / no data) ──────────────── */
@@ -2418,7 +2418,7 @@ html.ff-dark .ff-gpa-select:focus {
     align-items: center;
     gap: 8px;
     padding: 10px 24px;
-    background: #4f46e5;
+    background: #2563EB;
     color: #ffffff;
     border: none;
     border-radius: 10px;
@@ -2426,11 +2426,11 @@ html.ff-dark .ff-gpa-select:focus {
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 12px rgba(79,70,229,0.25);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
 .ff-marks-empty-btn:hover {
-    background: #4338ca;
-    box-shadow: 0 6px 16px rgba(79,70,229,0.35);
+    background: #1D4ED8;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
 }
 
 /* ── Loading Skeleton ──────────────────────────────────── */
@@ -2566,11 +2566,11 @@ html.ff-dark .ff-marks-empty-btn {
 .ff-btn svg { width: 16px; height: 16px; }
 
 .ff-btn-primary {
-    background: #4f46e5;
+    background: #2563EB;
     color: white;
 }
 .ff-btn-primary:hover {
-    background: #4338ca;
+    background: #1D4ED8;
 }
 .ff-btn-outline {
     background: transparent;

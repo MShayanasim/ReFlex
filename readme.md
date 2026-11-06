@@ -45,7 +45,7 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 - **NEW & UPDATED Tracking** — ReFlex saves a local snapshot of your marks. When a teacher uploads a new quiz or edits a previous score, the changed row is instantly tagged with a bright `NEW` or `UPD` badge. You always know exactly what changed since your last visit.
 - **Below-Average Warning** — Every assessment that you scored below the class average is automatically flagged with a `!` warning indicator, so you know precisely where you lost ground.
 - **Class Average Analytics** — Every single assessment row shows the class average right alongside your score for instant comparison. You can click on the scores in the Grand Final Marks card to instantly toggle between raw Marks and Weightage percentages.
-- **Minimum & Maximum Marks** — Know the highest and lowest scores in the class for every assessment with a subtle purple `Min X | Max Y` pill badge.
+- **Minimum & Maximum Marks** — Know the highest and lowest scores in the class for every assessment with a subtle Ocean Blue `Min X | Max Y` pill badge.
 - **Graded vs. Remaining Breakdown** — A clear stats row always shows how much of your grade has been evaluated and how much of the final percentage is still unplayed.
 
 #### 📅 Attendance Page
