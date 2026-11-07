@@ -361,6 +361,93 @@ function ffInjectRecaptchaThemer() {
 window.ffInjectRecaptchaThemer = ffInjectRecaptchaThemer;
 
 // ══════════════════════════════════════════════════════════════════════════
+// 2.6. POST-LOGIN UPDATE ANNOUNCEMENT NOTE (v2.5)
+// ══════════════════════════════════════════════════════════════════════════
+
+function ffInjectUpdateNote() {
+    if (window.location.pathname.toLowerCase().includes('/login')) return;
+    if (document.getElementById('ff-update-note')) return;
+
+    const showNote = () => {
+        if (document.getElementById('ff-update-note')) return;
+
+        const note = document.createElement('div');
+        note.id = 'ff-update-note';
+        note.className = 'ff-update-note ff-pill-collapsed';
+        note.innerHTML = `
+            <div class="ff-note-pill-bar" id="ff-note-pill-bar">
+                <span class="ff-note-pill-text">🎉 What's New in v2.5</span>
+                <span class="ff-note-pill-cta">See updates &rarr;</span>
+            </div>
+            <div class="ff-note-card-body" id="ff-note-card-body" style="display: none;">
+                <div class="ff-note-header">
+                    <span class="ff-note-badge">🎉 WHAT'S NEW IN v2.5</span>
+                    <button type="button" class="ff-note-close" title="Dismiss" id="ff-note-close-btn">&times;</button>
+                </div>
+                <div class="ff-note-subtitle">ReFlex has been updated to v2.5!</div>
+                <ul class="ff-note-list">
+                    <li><strong>All-new Deep Navy Dark Mode:</strong> upgraded with rich contrast across all Flex pages.</li>
+                    <li><strong>Desi attendance warnings:</strong> hilarious alerts on your bunks (click to re-roll).</li>
+                    <li><strong>Refreshed Light Mode:</strong> an updated theme with clean, modern styling.</li>
+                </ul>
+                <div class="ff-note-guide">
+                    <strong>How to share feedback:</strong><br>
+                    Click the ReFlex icon in your browser toolbar (pin it from the extensions menu) and tap "Give Feedback", or use the button below.
+                </div>
+                <div class="ff-note-actions">
+                    <a href="https://tally.so/r/5BJ0lv" target="_blank" rel="noopener noreferrer" class="ff-note-btn-primary">Give Feedback &rarr;</a>
+                    <button type="button" class="ff-note-btn-gotit" id="ff-note-got-it-btn">Got it</button>
+                </div>
+            </div>
+        `;
+
+        const pillBar = note.querySelector('#ff-note-pill-bar');
+        const cardBody = note.querySelector('#ff-note-card-body');
+        const closeBtn = note.querySelector('#ff-note-close-btn');
+        const gotItBtn = note.querySelector('#ff-note-got-it-btn');
+
+        if (pillBar) {
+            pillBar.addEventListener('click', () => {
+                pillBar.style.display = 'none';
+                cardBody.style.display = 'block';
+                note.classList.remove('ff-pill-collapsed');
+                note.classList.add('ff-pill-expanded');
+            });
+        }
+
+        const dismiss = (e) => {
+            if (e) e.stopPropagation();
+            note.classList.add('ff-note-out');
+            setTimeout(() => {
+                if (note.parentNode) note.remove();
+            }, 220);
+            try {
+                chrome.storage.local.set({ ff_update_v250_note_dismissed: true });
+            } catch (err) {
+                sessionStorage.setItem('ff_update_v250_note_dismissed', '1');
+            }
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', dismiss);
+        if (gotItBtn) gotItBtn.addEventListener('click', dismiss);
+
+        document.body.appendChild(note);
+    };
+
+    try {
+        chrome.storage.local.get(['ff_update_v250_note_dismissed'], (res) => {
+            if (res && res.ff_update_v250_note_dismissed) return;
+            showNote();
+        });
+    } catch (e) {
+        if (!sessionStorage.getItem('ff_update_v250_note_dismissed')) {
+            showNote();
+        }
+    }
+}
+window.ffInjectUpdateNote = ffInjectUpdateNote;
+
+// ══════════════════════════════════════════════════════════════════════════
 // 3. SHARED HELPERS
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -2300,15 +2387,16 @@ window.ffRunTutorial = function() {
     function initReFlex() {
         startWatch();
         
-        const injectLoginFeatures = () => {
+        const injectPortalFeatures = () => {
             if (window.ffInjectLoginToggle) window.ffInjectLoginToggle();
             if (window.ffInjectRecaptchaThemer) window.ffInjectRecaptchaThemer();
+            if (window.ffInjectUpdateNote) window.ffInjectUpdateNote();
         };
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', injectLoginFeatures);
+            document.addEventListener('DOMContentLoaded', injectPortalFeatures);
         } else {
-            injectLoginFeatures();
+            injectPortalFeatures();
         }
     }
 

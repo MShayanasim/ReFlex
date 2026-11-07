@@ -2741,3 +2741,335 @@ html.ff-dark .ff-tutorial-tooltip button {
     color: #0B1324 !important;
     font-weight: 700 !important;
 }
+
+/* ── Post-Login Update Note (v2.5) — Option B (Expandable Pill) ─────────── */
+.ff-update-note {
+    position: fixed;
+    top: 70px;
+    right: 24px;
+    z-index: 99999;
+    font-family: 'Inter', -apple-system, sans-serif;
+    box-sizing: border-box;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Collapsed Pill State */
+.ff-update-note.ff-pill-collapsed {
+    cursor: pointer;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 30px;
+    padding: 7px 16px;
+    --ff-pill-border-idle: #e2e8f0;
+    --ff-pill-border-glow: rgba(37, 99, 235, 0.5);
+    --ff-pill-shadow-idle: 0 4px 14px rgba(15, 23, 42, 0.08);
+    --ff-pill-shadow-glow: 0 6px 20px rgba(37, 99, 235, 0.18), 0 0 10px rgba(37, 99, 235, 0.15);
+    box-shadow: var(--ff-pill-shadow-idle);
+    animation: ff-note-in 0.3s ease-out, ff-pill-float 3s ease-in-out infinite 0.3s;
+}
+
+.ff-update-note.ff-pill-collapsed:hover {
+    border-color: #2563EB !important;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.22), 0 0 12px rgba(37, 99, 235, 0.2) !important;
+    transform: translateY(-4px) !important;
+    animation-play-state: paused !important;
+}
+
+@keyframes ff-pill-float {
+    0%, 100% {
+        transform: translateY(0);
+        border-color: var(--ff-pill-border-idle);
+        box-shadow: var(--ff-pill-shadow-idle);
+    }
+    50% {
+        transform: translateY(-3.5px);
+        border-color: var(--ff-pill-border-glow);
+        box-shadow: var(--ff-pill-shadow-glow);
+    }
+}
+
+.ff-note-pill-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.ff-note-pill-text {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.ff-note-pill-cta {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #2563EB;
+    transition: transform 0.15s ease;
+}
+
+.ff-update-note.ff-pill-collapsed:hover .ff-note-pill-cta {
+    transform: translateX(2px);
+}
+
+/* Expanded Card State */
+.ff-update-note.ff-pill-expanded {
+    width: 345px;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+    padding: 18px 20px;
+    color: #1e293b;
+    animation: ff-card-expand 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ff-card-expand {
+    from {
+        opacity: 0.6;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.ff-update-note.ff-note-out {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+    pointer-events: none;
+}
+
+@keyframes ff-note-in {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.ff-note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.ff-note-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2563EB;
+    background: rgba(37, 99, 235, 0.08);
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+}
+
+/* Close 'x' button: NO box on hover, simply goes blue */
+.ff-note-close {
+    background: transparent !important;
+    border: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color 0.15s ease;
+}
+
+.ff-note-close:hover {
+    color: #2563EB !important;
+    background: transparent !important;
+}
+
+.ff-note-subtitle {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 10px;
+}
+
+.ff-note-list {
+    list-style: disc;
+    padding-left: 18px;
+    margin: 0 0 12px 0;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: #475569;
+}
+
+.ff-note-list li {
+    margin-bottom: 6px;
+}
+
+.ff-note-list li strong {
+    color: #0f172a;
+}
+
+.ff-note-guide {
+    font-size: 12.5px;
+    color: #64748b;
+    line-height: 1.4;
+    margin-bottom: 14px;
+    background: #f8fafc;
+    border-left: 3px solid #2563EB;
+    padding: 8px 10px;
+    border-radius: 6px;
+}
+
+.ff-note-guide strong {
+    color: #1e293b;
+}
+
+.ff-note-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.ff-note-btn-primary {
+    background: #2563EB;
+    color: #ffffff !important;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.ff-note-btn-primary:hover {
+    background: #1D4ED8;
+    color: #ffffff !important;
+}
+
+/* Got it button: has blue outlines on hover like rest of ReFlex */
+.ff-note-btn-gotit {
+    background: #f8fafc;
+    color: #334155;
+    border: 1.5px solid #cbd5e1;
+    padding: 7px 18px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.ff-note-btn-gotit:hover {
+    border-color: #2563EB;
+    color: #2563EB;
+    background: rgba(37, 99, 235, 0.05);
+}
+
+/* ── Dark Mode Overrides ─────────────────────────────────────────────────── */
+html.ff-dark .ff-update-note.ff-pill-collapsed {
+    background: #0D182B !important;
+    --ff-pill-border-idle: #1E2F4D;
+    --ff-pill-border-glow: rgba(56, 189, 248, 0.65);
+    --ff-pill-shadow-idle: 0 6px 20px rgba(0, 0, 0, 0.45);
+    --ff-pill-shadow-glow: 0 6px 24px rgba(56, 189, 248, 0.25), 0 0 12px rgba(56, 189, 248, 0.22);
+}
+
+html.ff-dark .ff-update-note.ff-pill-collapsed:hover {
+    border-color: #38BDF8 !important;
+    background: #162544 !important;
+    box-shadow: 0 8px 28px rgba(56, 189, 248, 0.28), 0 0 14px rgba(56, 189, 248, 0.25) !important;
+    transform: translateY(-4px) !important;
+}
+
+html.ff-dark .ff-note-pill-text {
+    color: #F4EDE0 !important;
+}
+
+html.ff-dark .ff-note-pill-cta {
+    color: #38BDF8 !important;
+}
+
+html.ff-dark .ff-update-note.ff-pill-expanded {
+    background: #0D182B !important;
+    border-color: #1E2F4D !important;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6) !important;
+    color: #F4EDE0 !important;
+}
+
+html.ff-dark .ff-note-badge {
+    color: #38BDF8 !important;
+    background: rgba(56, 189, 248, 0.1) !important;
+    border: 1px solid rgba(56, 189, 248, 0.25) !important;
+}
+
+/* Dark mode 'x': goes Ice Blue on hover, no box */
+html.ff-dark .ff-note-close {
+    color: #94A3B8 !important;
+    background: transparent !important;
+}
+
+html.ff-dark .ff-note-close:hover {
+    color: #38BDF8 !important;
+    background: transparent !important;
+}
+
+html.ff-dark .ff-note-subtitle {
+    color: #F4EDE0 !important;
+}
+
+html.ff-dark .ff-note-list {
+    color: #CBD5E1 !important;
+}
+
+html.ff-dark .ff-note-list li strong {
+    color: #F4EDE0 !important;
+}
+
+html.ff-dark .ff-note-guide {
+    background: #111D33 !important;
+    color: #94A3B8 !important;
+    border-left-color: #38BDF8 !important;
+}
+
+html.ff-dark .ff-note-guide strong {
+    color: #F4EDE0 !important;
+}
+
+html.ff-dark .ff-note-btn-primary {
+    background: #38BDF8 !important;
+    color: #0D182B !important;
+    font-weight: 700 !important;
+}
+
+html.ff-dark .ff-note-btn-primary:hover {
+    background: #7DD3FC !important;
+    color: #0D182B !important;
+}
+
+/* Dark mode 'Got it': Ice Blue outline on hover */
+html.ff-dark .ff-note-btn-gotit {
+    background: #111D33 !important;
+    color: #CBD5E1 !important;
+    border: 1.5px solid #1E2F4D !important;
+}
+
+html.ff-dark .ff-note-btn-gotit:hover {
+    border-color: #38BDF8 !important;
+    color: #38BDF8 !important;
+    background: #162544 !important;
+}
+
+/* Hide update note during print/PDF export */
+@media print {
+    .ff-update-note {
+        display: none !important;
+    }
+}

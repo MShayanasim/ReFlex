@@ -238,6 +238,7 @@ function handleNavChange() {
         url === lastUrl && key === lastRunKey && document.getElementById('ff-root');
     if (samePageAlreadyDone) {
         window.ffInjectTopbarToggle && window.ffInjectTopbarToggle();
+        window.ffInjectUpdateNote && window.ffInjectUpdateNote();
         return;
     }
 
@@ -254,6 +255,7 @@ function handleNavChange() {
         document.documentElement.classList.remove('ff-veil-native');
         tearDown();
         window.ffInjectTopbarToggle && window.ffInjectTopbarToggle();
+        window.ffInjectUpdateNote && window.ffInjectUpdateNote();
         return;
     }
 
@@ -269,6 +271,7 @@ function handleNavChange() {
 
         tearDown();
         window.ffInjectTopbarToggle && window.ffInjectTopbarToggle();
+        window.ffInjectUpdateNote && window.ffInjectUpdateNote();
 
         startScanWatcher();
         // Immediate check — page may already be fully loaded with no pending mutations
