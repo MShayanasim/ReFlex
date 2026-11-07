@@ -44,14 +44,14 @@ ReFlex is a Chrome Extension that completely replaces the Flex student portal ex
 - **Best of N / Drop Logic Support** — Fully supports complex grading structures where the lowest quizzes or assignments are dropped. Dropped items are visually struck through so you know exactly which scores are contributing to your final total.
 - **Current Grade & GPA Badge** — Your live grade and GPA points are displayed prominently with a colour-coded badge (emerald for A, indigo for B, amber for C, and so on).
 - **NEW & UPDATED Tracking** — ReFlex saves a local snapshot of your marks. When a teacher uploads a new quiz or edits a previous score, the changed row is instantly tagged with a bright `NEW` or `UPD` badge. You always know exactly what changed since your last visit.
-- **Below-Average Warning (With a Desi Touch)** — Assessments scored below class average are automatically flagged with a `!` warning indicator and contextual motivational alerts. You can even click the alert messages to roll for new ones!
+- **Below-Average Warning** — Every assessment that you scored below the class average is automatically flagged with a `!` warning indicator, so you know precisely where you lost ground.
 - **Class Average Analytics** — Every single assessment row shows the class average right alongside your score for instant comparison. You can click on the scores in the Grand Final Marks card to instantly toggle between raw Marks and Weightage percentages.
 - **Minimum & Maximum Marks** — Know the highest and lowest scores in the class for every assessment with a subtle Ocean Blue `Min X | Max Y` pill badge.
 - **Graded vs. Remaining Breakdown** — A clear stats row always shows how much of your grade has been evaluated and how much of the final percentage is still unplayed.
 
 #### 📅 Attendance Page
 - **Absents Allowed Counter** — ReFlex calculates and displays exactly how many more hours you can afford to miss before dropping below the 80% threshold — directly above each course attendance table.
-- **Live Absent Hours Warning** — Tracks your absent hours and warns you with bold status messages when you enter the danger zone.
+- **Live Absent Hours Warning (With a Desi Touch)** — Tracks your absent hours with humorous, contextual desi warning messages (from chill warnings to "repeat confirmed 🤝"). Click any warning message to roll a new one!
 - **Show Absents Only Filter** — A dedicated button above each table lets you instantly filter to show only the dates you were absent, saving you from scrolling through long tables.
 
 #### 📜 Transcript Page
