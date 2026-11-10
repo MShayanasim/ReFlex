@@ -364,6 +364,21 @@ window.ffInjectRecaptchaThemer = ffInjectRecaptchaThemer;
 // 2.6. POST-LOGIN UPDATE ANNOUNCEMENT NOTE (v2.5)
 // ══════════════════════════════════════════════════════════════════════════
 
+const FF_UPDATE_CONFIG = {
+    versionKey: 'v250',
+    storageKey: 'ff_update_v250_note_dismissed',
+    pillText: "🎉 What's New in v2.5",
+    pillCta: "See updates &rarr;",
+    badgeText: "🎉 WHAT'S NEW IN v2.5",
+    subtitle: "ReFlex has been updated to v2.5!",
+    highlights: [
+        { title: "All-new Deep Navy Dark Mode:", desc: "upgraded with rich contrast across all Flex pages." },
+        { title: "Desi attendance warnings:", desc: "hilarious alerts on your bunks (click to re-roll)." },
+        { title: "Refreshed Light Mode:", desc: "an updated theme with clean, modern styling." }
+    ],
+    feedbackUrl: "https://tally.so/r/5BJ0lv"
+};
+
 function ffInjectUpdateNote() {
     if (window.location.pathname.toLowerCase().includes('/login')) return;
     if (document.getElementById('ff-update-note')) return;
@@ -374,28 +389,31 @@ function ffInjectUpdateNote() {
         const note = document.createElement('div');
         note.id = 'ff-update-note';
         note.className = 'ff-update-note ff-pill-collapsed';
+
+        const listItemsHtml = FF_UPDATE_CONFIG.highlights
+            .map(h => `<li><strong>${h.title}</strong> ${h.desc}</li>`)
+            .join('');
+
         note.innerHTML = `
             <div class="ff-note-pill-bar" id="ff-note-pill-bar">
-                <span class="ff-note-pill-text">🎉 What's New in v2.5</span>
-                <span class="ff-note-pill-cta">See updates &rarr;</span>
+                <span class="ff-note-pill-text">${FF_UPDATE_CONFIG.pillText}</span>
+                <span class="ff-note-pill-cta">${FF_UPDATE_CONFIG.pillCta}</span>
             </div>
             <div class="ff-note-card-body" id="ff-note-card-body" style="display: none;">
                 <div class="ff-note-header">
-                    <span class="ff-note-badge">🎉 WHAT'S NEW IN v2.5</span>
+                    <span class="ff-note-badge">${FF_UPDATE_CONFIG.badgeText}</span>
                     <button type="button" class="ff-note-close" title="Dismiss" id="ff-note-close-btn">&times;</button>
                 </div>
-                <div class="ff-note-subtitle">ReFlex has been updated to v2.5!</div>
+                <div class="ff-note-subtitle">${FF_UPDATE_CONFIG.subtitle}</div>
                 <ul class="ff-note-list">
-                    <li><strong>All-new Deep Navy Dark Mode:</strong> upgraded with rich contrast across all Flex pages.</li>
-                    <li><strong>Desi attendance warnings:</strong> hilarious alerts on your bunks (click to re-roll).</li>
-                    <li><strong>Refreshed Light Mode:</strong> an updated theme with clean, modern styling.</li>
+                    ${listItemsHtml}
                 </ul>
                 <div class="ff-note-guide">
                     <strong>How to share feedback:</strong><br>
                     Click the ReFlex icon in your browser toolbar (pin it from the extensions menu) and tap "Give Feedback", or use the button below.
                 </div>
                 <div class="ff-note-actions">
-                    <a href="https://tally.so/r/5BJ0lv" target="_blank" rel="noopener noreferrer" class="ff-note-btn-primary">Give Feedback &rarr;</a>
+                    <a href="${FF_UPDATE_CONFIG.feedbackUrl}" target="_blank" rel="noopener noreferrer" class="ff-note-btn-primary">Give Feedback &rarr;</a>
                     <button type="button" class="ff-note-btn-gotit" id="ff-note-got-it-btn">Got it</button>
                 </div>
             </div>
@@ -422,9 +440,9 @@ function ffInjectUpdateNote() {
                 if (note.parentNode) note.remove();
             }, 220);
             try {
-                chrome.storage.local.set({ ff_update_v250_note_dismissed: true });
+                chrome.storage.local.set({ [FF_UPDATE_CONFIG.storageKey]: true });
             } catch (err) {
-                sessionStorage.setItem('ff_update_v250_note_dismissed', '1');
+                sessionStorage.setItem(FF_UPDATE_CONFIG.storageKey, '1');
             }
         };
 
@@ -435,12 +453,12 @@ function ffInjectUpdateNote() {
     };
 
     try {
-        chrome.storage.local.get(['ff_update_v250_note_dismissed'], (res) => {
-            if (res && res.ff_update_v250_note_dismissed) return;
+        chrome.storage.local.get([FF_UPDATE_CONFIG.storageKey], (res) => {
+            if (res && res[FF_UPDATE_CONFIG.storageKey]) return;
             showNote();
         });
     } catch (e) {
-        if (!sessionStorage.getItem('ff_update_v250_note_dismissed')) {
+        if (!sessionStorage.getItem(FF_UPDATE_CONFIG.storageKey)) {
             showNote();
         }
     }
@@ -488,11 +506,48 @@ function gradeStyle(grade) {
 
 // Non-GPA grades — excluded from SGPA/CGPA calculation (pass/fail, non-credit, incomplete, withdrawn)
 const NON_GPA_GRADES = new Set(['-', 'I', 'W', 'NC', 'S', 'U']);
-function isGpaGrade(grade, remarks, type) {
+
+// Dynamic non-credit course registry (populated from transcript portal metadata & persisted in storage)
+const _ncCache = {};
+
+function isNonCreditCourse(c) {
+    if (!c) return false;
+    const type = (c.type || '').replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+    const remarks = (c.remarks || '').replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+    const grade = (c.grade || '').trim().toUpperCase();
+    const name = (c.name || c.courseName || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    const rawCode = (c.code || '').trim().toUpperCase();
+    const code = rawCode || ((c.name || c.courseName || '').match(/([A-Z]{2,4}\d{4})/i) || [])[1]?.toUpperCase() || '';
+
+    // 1. Explicit Portal Type column flags
+    if (type.includes('NON CREDIT') || type === 'NC' || type === 'AUDIT') return true;
+
+    // 2. Explicit Portal Remarks column flags
+    if (/\bNC\b/.test(remarks) || remarks.includes('NON CREDIT')) return true;
+
+    // 3. Explicit Portal Grade flags (S = Satisfactory, U = Unsatisfactory, NC = Non-Credit)
+    if (grade === 'S' || grade === 'U' || grade === 'NC') return true;
+
+    // 4. Explicit 0 Credit Hours or 'NC' in CrdHrs
+    const rawCr = c.crhrs ?? c.cr;
+    if (rawCr !== undefined && rawCr !== null && rawCr !== '') {
+        const parsed = parseFloat(rawCr);
+        if (parsed === 0 || (typeof rawCr === 'string' && rawCr.toUpperCase() === 'NC')) return true;
+    }
+
+    // 5. Course heading / text markers on Marks page (e.g. "Course (NC)" or "Course (Non-Credit)")
+    if (name.includes('(NC)') || name.includes('(NON-CREDIT)') || name.includes('(NON CREDIT)') || name.includes('NON-CREDIT') || name.includes('NON CREDIT')) return true;
+
+    // 6. Registered in transcript non-credit cache
+    if (code && _ncCache[code]) return true;
+
+    return false;
+}
+
+function isGpaGrade(grade, remarks, type, course) {
     const g = (grade || '').trim().toUpperCase();
     if (!g || NON_GPA_GRADES.has(g)) return false;
-    if ((remarks || '').trim().toUpperCase() === 'NC') return false;
-    if ((type || '').trim().toUpperCase() === 'NON CREDIT') return false;
+    if (isNonCreditCourse(course || { grade, remarks, type })) return false;
     return true;
 }
 
@@ -541,9 +596,12 @@ const _crCache = {};
 window.ffGetCreditHours = (code) => _crCache[code] ?? null;
 
 try {
-    chrome.storage.local.get(['ff_credit_cache'], (res) => {
+    chrome.storage.local.get(['ff_credit_cache', 'ff_nc_cache'], (res) => {
         if (res.ff_credit_cache) {
             Object.assign(_crCache, res.ff_credit_cache);
+        }
+        if (res.ff_nc_cache) {
+            Object.assign(_ncCache, res.ff_nc_cache);
         }
     });
 } catch(e) {}
@@ -1445,11 +1503,19 @@ function renderMarksDashboard(marksData, changedKeys, options = {}) {
     marksData.forEach(course => {
         const codeMatch = course.courseName.match(/^([A-Z]{2,4}\d{4})/i);
         if (codeMatch) {
-            let hrs = 3;
-            const lower = course.courseName.toLowerCase();
-            if (lower.includes(' lab') || /^(cl|el|sl)\d/i.test(course.courseName)) hrs = 1;
-            else if (/^ss\d/i.test(course.courseName)) hrs = 2;
-            _crCache[codeMatch[1].toUpperCase()] = hrs;
+            const upperCode = codeMatch[1].toUpperCase();
+            if (_crCache[upperCode] !== undefined) return; // Keep authoritative transcript data
+
+            if (isNonCreditCourse({ code: upperCode, courseName: course.courseName })) {
+                _crCache[upperCode] = 0;
+                _ncCache[upperCode] = true;
+            } else {
+                let hrs = 3;
+                const lower = course.courseName.toLowerCase();
+                if (lower.includes(' lab') || /^(cl|el|sl)\d/i.test(course.courseName)) hrs = 1;
+                else if (/^ss\d/i.test(course.courseName)) hrs = 2;
+                _crCache[upperCode] = hrs;
+            }
         }
     });
 
@@ -1761,7 +1827,7 @@ function triggerTranscriptPrint(sems) {
                 const pts = parseFloat(c.points) || 0;
                 let gpaText = 'N/A';
                 const gradeUpper = (c.grade || '').trim().toUpperCase();
-                if (isGpaGrade(c.grade, c.remarks, c.type)) {
+                if (isGpaGrade(c.grade, c.remarks, c.type, c)) {
                     gpaText = pts.toFixed(2);
                 }
                 return [
@@ -1939,39 +2005,75 @@ function renderTranscriptDashboard(semesters) {
         if (dlAllBtn) dlAllBtn.onclick = () => triggerTranscriptPrint(semesters);
     }, 0);
 
-        // Pre-calculate running points and SGPA/CGPA for all semesters
-    let runningPoints = 0, runningCrHrs = 0;
+        // Pre-calculate running points, SGPA/CGPA, and credit hours for all semesters
+    let runningPoints = 0, runningGpaCrHrs = 0;
+    let runningCalcAttempted = 0, runningCalcEarned = 0;
+
     semesters.forEach(sem => {
-        let semPoints = 0, semCrHrs = 0;
+        let semPoints = 0, semGpaCrHrs = 0;
+        let semAttemptedCr = 0, semEarnedCr = 0;
+
         sem.courses.forEach(c => {
             const cr = parseFloat(c.crhrs) || 0;
             const pts = parseFloat(c.points) || 0;
             const grade = (c.grade || '').trim().toUpperCase();
             const remarks = (c.remarks || '').trim().toUpperCase();
             const type = (c.type || '').trim().toUpperCase();
+            const isNC = isNonCreditCourse(c);
+            const isWithdrawn = grade === 'W';
 
-            // Cache credit hours for all valid courses (even ongoing ones with '-' grade)
-            if (cr > 0 && type !== 'NON CREDIT' && remarks !== 'NC' && grade !== 'NC' && grade !== 'S' && grade !== 'U') {
-                const codeMatch = c.code.match(/^([A-Z]{2,4}\d{4})/i);
-                if (codeMatch) _crCache[codeMatch[1].toUpperCase()] = cr;
+            // Cache credit hours and register non-credit courses
+            const codeMatch = c.code.match(/^([A-Z]{2,4}\d{4})/i);
+            if (codeMatch) {
+                const upperCode = codeMatch[1].toUpperCase();
+                if (isNC) {
+                    _crCache[upperCode] = cr > 0 ? cr : 0;
+                    _ncCache[upperCode] = true;
+                } else if (cr > 0 && grade !== 'NC' && grade !== 'S' && grade !== 'U') {
+                    _crCache[upperCode] = cr;
+                    _ncCache[upperCode] = false;
+                }
+            }
+
+            // Academic Attempted Credit Hours (all enrolled credit-bearing courses, excluding non-credit & withdrawn)
+            if (cr > 0 && !isNC && !isWithdrawn) {
+                semAttemptedCr += cr;
+            }
+
+            // Academic Earned Credit Hours (credit-bearing courses passed: not F, I, W, U, NC, -, —)
+            const isPassed = cr > 0 && !isNC && !isWithdrawn && grade !== 'F' && grade !== 'I' && grade !== 'U' && grade !== 'NC' && grade !== '-' && grade !== '—' && grade !== '';
+            if (isPassed) {
+                semEarnedCr += cr;
             }
 
             // Ignore incomplete, withdrawn, or non-credit courses for GPA calculation
-            if (cr > 0 && isGpaGrade(grade, remarks, type)) {
+            if (cr > 0 && isGpaGrade(grade, remarks, type, c)) {
                 semPoints += pts * cr;
-                semCrHrs  += cr;
+                semGpaCrHrs += cr;
                 runningPoints += pts * cr;
-                runningCrHrs  += cr;
+                runningGpaCrHrs += cr;
             }
         });
-        sem.sgpa = semCrHrs > 0 ? (semPoints / semCrHrs).toFixed(2) : '—';
-        sem.cgpa = runningCrHrs > 0 ? (runningPoints / runningCrHrs).toFixed(2) : '—';
-        sem.semCrHrs = semCrHrs;
+
+        runningCalcAttempted += semAttemptedCr;
+        runningCalcEarned += semEarnedCr;
+
+        sem.sgpa = semGpaCrHrs > 0 ? (semPoints / semGpaCrHrs).toFixed(2) : '—';
+        sem.cgpa = runningGpaCrHrs > 0 ? (runningPoints / runningGpaCrHrs).toFixed(2) : '—';
+        sem.gpaCrHrs = semGpaCrHrs;
+
+        // Current semester credit hours
+        sem.semCrHrs = semAttemptedCr;
+        sem.semEarnedCrHrs = semEarnedCr;
+
+        // Total credit hours (cumulative up to this semester, prioritizing portal's authoritative figure if available)
+        sem.cumCrHrs = (sem.portalCrAtt !== null && sem.portalCrAtt !== undefined) ? sem.portalCrAtt : runningCalcAttempted;
+        sem.cumEarnedCrHrs = (sem.portalCrErnd !== null && sem.portalCrErnd !== undefined) ? sem.portalCrErnd : runningCalcEarned;
     });
 
     // Persist credit-hour cache to storage for GPA Planner
     try {
-        chrome.storage.local.set({ ff_credit_cache: _crCache });
+        chrome.storage.local.set({ ff_credit_cache: _crCache, ff_nc_cache: _ncCache });
     } catch(e) {}
 
     // Create Semester Tabs
@@ -1995,12 +2097,18 @@ function renderTranscriptDashboard(semesters) {
         mainCard.innerHTML = `
             <div class="ff-sem-header" style="align-items: center; margin-bottom: 30px; background: transparent !important; width: 100%;">
                 <span class="ff-sem-title" style="font-size: 1.4rem;">${esc(sem.name)}</span>
-                <div class="ff-sem-rings">
-                    <div class="ff-ring" title="Semester GPA">
-                        <span>${sem.sgpa}</span><small>SGPA</small>
+                <div class="ff-sem-header-right">
+                    <div class="ff-sem-cr-stats">
+                        <span class="ff-sem-cr-item" title="Semester Credit Hours: ${sem.semCrHrs}">Semester Cr: <strong>${sem.semCrHrs}</strong></span>
+                        <span class="ff-sem-cr-item" title="Total Credit Hours: ${sem.cumCrHrs} Attempted | ${sem.cumEarnedCrHrs} Earned">Total Cr: <strong>${sem.cumCrHrs}</strong></span>
                     </div>
-                    <div class="ff-ring" title="Cumulative GPA so far">
-                        <span>${sem.cgpa}</span><small>CGPA</small>
+                    <div class="ff-sem-rings">
+                        <div class="ff-ring" title="Semester GPA">
+                            <span>${sem.sgpa}</span><small>SGPA</small>
+                        </div>
+                        <div class="ff-ring" title="Cumulative GPA so far">
+                            <span>${sem.cgpa}</span><small>CGPA</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2016,16 +2124,16 @@ function renderTranscriptDashboard(semesters) {
             
             let weightPct = '';
             let contribPts = '';
-            if (cr > 0 && sem.semCrHrs > 0 && isGpaGrade(c.grade, c.remarks, c.type)) {
-                weightPct = ((cr / sem.semCrHrs) * 100).toFixed(1) + '% of SGPA';
+            if (cr > 0 && sem.gpaCrHrs > 0 && isGpaGrade(c.grade, c.remarks, c.type, c)) {
+                weightPct = ((cr / sem.gpaCrHrs) * 100).toFixed(1) + '% of SGPA';
                 if (pts > 0) {
-                    contribPts = ((pts * cr) / sem.semCrHrs).toFixed(3) + ' pts to SGPA';
+                    contribPts = ((pts * cr) / sem.gpaCrHrs).toFixed(3) + ' pts to SGPA';
                 }
             }
 
             let gpaText = '<span style="opacity: 0.5;">N/A</span>';
             const gradeUpper = (c.grade || '').trim().toUpperCase();
-            if (isGpaGrade(c.grade, c.remarks, c.type)) {
+            if (isGpaGrade(c.grade, c.remarks, c.type, c)) {
                 gpaText = pts.toFixed(2) + ' <span style="font-size: 0.85rem; opacity: 0.6; font-weight: 600; font-family: \'Inter\', sans-serif;">GPA</span>';
             }
 
@@ -2413,6 +2521,7 @@ let _gpaSidebarOpen = false;
 let _gpaSelections = {};
 let _gpaUnlocked = {};
 let _gpaCreditCache = {};
+let _gpaNcCache = {};
 let _gpaSaveTimer = null;
 const GPA_TIERS_PLANNER = [
     { label: 'A',   gpa: 4.00, pct: 86 },
@@ -2463,8 +2572,9 @@ window.ffToggleGpaPlanner = function(marksData) {
     root.appendChild(sidebar);
     
     // Read async data
-    chrome.storage.local.get(['ff_credit_cache', 'ff_gpa_planner_selections', 'ff_gpa_planner_unlocked'], (res) => {
+    chrome.storage.local.get(['ff_credit_cache', 'ff_nc_cache', 'ff_gpa_planner_selections', 'ff_gpa_planner_unlocked'], (res) => {
         _gpaCreditCache = res.ff_credit_cache || {};
+        _gpaNcCache = res.ff_nc_cache || {};
         _gpaSelections = res.ff_gpa_planner_selections || {};
         _gpaUnlocked = res.ff_gpa_planner_unlocked || {};
         
@@ -2475,10 +2585,10 @@ window.ffToggleGpaPlanner = function(marksData) {
             if (m) currentCodes.add(m[1].toUpperCase());
         });
         Object.keys(_gpaSelections).forEach(k => {
-            if (!currentCodes.has(k)) delete _gpaSelections[k];
+            if (!currentCodes.has(k) || (_gpaNcCache && _gpaNcCache[k])) delete _gpaSelections[k];
         });
         Object.keys(_gpaUnlocked).forEach(k => {
-            if (!currentCodes.has(k)) delete _gpaUnlocked[k];
+            if (!currentCodes.has(k) || (_gpaNcCache && _gpaNcCache[k])) delete _gpaUnlocked[k];
         });
         debounceSaveSelections();
 
@@ -2540,6 +2650,21 @@ function renderGpaPlannerUI(marksData, sidebar) {
         const code = codeMatch[1].toUpperCase();
         const displayName = course.courseName.replace(/^[A-Z]{2,4}\d{4}-?\s*/i, '').replace(/\s*\(.*\)$/, '').trim();
         const cr = _gpaCreditCache[code];
+        const isNC = (_gpaNcCache && _gpaNcCache[code] === true) || cr === 0 || isNonCreditCourse({ code, courseName: course.courseName });
+
+        if (isNC) {
+            html += `
+                <div class="ff-planner-row ff-gpa-excluded">
+                    <div class="ff-planner-row-info">
+                        <strong>${esc(code)}</strong> - ${esc(displayName)}
+                        <div class="ff-planner-row-meta"><span style="color:#10b981;font-weight:600;">✓</span> Non-Credit (Excluded from GPA)</div>
+                    </div>
+                    <div class="ff-planner-row-action" style="opacity: 0.6; font-size: 0.82rem; font-weight: 500;">
+                        Pass / Fail
+                    </div>
+                </div>`;
+            return;
+        }
 
         if (!cr || cr <= 0) {
             html += `
@@ -2624,7 +2749,7 @@ function renderGpaPlannerUI(marksData, sidebar) {
         `;
     });
 
-    if (coursesData.length === 0) {
+    if (marksData.length === 0) {
         sidebar.innerHTML = `
             <div class="ff-gpa-header">
                 <h3>GPA Planner</h3>
@@ -2772,10 +2897,11 @@ function recalculateSemesterGpa(coursesData, sidebar) {
 
     const hero = sidebar.querySelector('#ff-gpa-hero-value');
     if (hero) {
-        hero.textContent = semGpa.toFixed(2);
+        hero.textContent = sumCr > 0 ? semGpa.toFixed(2) : 'N/A';
         
         let color = 'var(--text-color)';
-        if (semGpa >= 3.67) color = '#10b981';
+        if (sumCr === 0) color = 'var(--text-muted)';
+        else if (semGpa >= 3.67) color = '#10b981';
         else if (semGpa >= 3.0) color = '#3b82f6';
         else if (semGpa >= 2.0) color = '#eab308';
         else color = '#ef4444';

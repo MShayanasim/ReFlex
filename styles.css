@@ -500,6 +500,10 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
     border-bottom: 1px solid #f1f5f9;
 }
 .ff-sem-title  { font-size: 1.6rem; font-weight: 700; color: #0f172a; }
+.ff-sem-header-right { display: flex; align-items: center; gap: 24px; }
+.ff-sem-cr-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ff-sem-cr-item { font-size: 0.9rem; font-weight: 500; color: #64748b; white-space: nowrap; cursor: default; line-height: 1.25; }
+.ff-sem-cr-item strong { font-weight: 700; color: #0f172a; margin-left: 4px; }
 .ff-sem-rings  { display: flex; gap: 18px; }
 .ff-ring {
     display: flex;
@@ -563,6 +567,8 @@ html.ff-dark .ff-threshold-pct.ff-threshold-golden {
 @media (max-width: 720px) {
     .ff-big-score      { font-size: 2rem; }
     .ff-sem-header     { flex-direction: column; gap: 14px; align-items: flex-start; }
+    .ff-sem-header-right { width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
+    .ff-sem-cr-stats   { align-items: flex-start; }
     .ff-course-item    { flex-direction: column; align-items: flex-start; gap: 12px; }
     .ff-grade-badge    { align-self: flex-start; }
     .ff-cards-grid     { grid-template-columns: 1fr; }
@@ -1449,9 +1455,16 @@ html.ff-dark .ff-sem-header {
     background: transparent !important;
     width: 100% !important;
 }
-html.ff-dark .ff-sem-title { 
+html.ff-dark .ff-sem-title {
     color: #F4EDE0 !important;
 }
+html.ff-dark .ff-sem-cr-item {
+    color: #94A3B8 !important;
+}
+html.ff-dark .ff-sem-cr-item strong {
+    color: #F4EDE0 !important;
+}
+
 html.ff-dark .ff-ring {
     background: rgba(56, 189, 248, 0.08) !important;
     border: 1.5px solid #38bdf8 !important;

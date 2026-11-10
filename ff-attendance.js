@@ -148,7 +148,7 @@ function getWarningMessage(table, absents, warnAt, maxAbsents, forceNew = false)
 // ── Build and inject the info bar ─────────────────────────────────────────
 function buildBar(table, presenceIdx, durationIdx) {
     // ─ detect credit hours from nearby heading ─
-    const creditHours = detectCreditHours(table);
+    const creditHours = Math.max(1, detectCreditHours(table));
     const maxAbsents  = creditHours * 3;   // 1cr→3h, 2cr→6h, 3cr→9h
     const warnAt      = creditHours * 2;   // 1cr→2h, 2cr→4h, 3cr→6h
 
@@ -306,7 +306,7 @@ function detectCreditHours(table) {
     const courseCode = (heading.match(/([A-Z]{2,4}\d{4})/i) || [])[1];
     if (courseCode && typeof window.ffGetCreditHours === 'function') {
         const fromTranscript = window.ffGetCreditHours(courseCode);
-        if (fromTranscript !== null) return fromTranscript;
+        if (fromTranscript !== null && fromTranscript > 0) return fromTranscript;
     }
 
     // ── Strategy 2: name-based heuristic (fallback) ──────────────────────

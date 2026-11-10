@@ -56,27 +56,50 @@
 
         if (!semName) semName = 'Semester ' + (semesters.length + 1);
 
-        const sem = { name: semName, courses: [] };
+        // Extract portal summary stats (Cr. Att, Cr. Ernd) if present in DOM
+        let portalCrAtt = null;
+        let portalCrErnd = null;
+        let statsText = '';
+        for (let i = 0; i < headerRowIdx; i++) {
+            statsText += ' ' + (rows[i].innerText || rows[i].textContent || '');
+        }
+        if (table.previousElementSibling) {
+            statsText += ' ' + (table.previousElementSibling.innerText || table.previousElementSibling.textContent || '');
+        }
+        const colParent = table.closest('.col-md-6, .col-lg-6, [class*="col-"]') || table.parentElement;
+        if (colParent) {
+            const pullRight = colParent.querySelector('.pull-right, [class*="pull-"]');
+            if (pullRight) {
+                statsText += ' ' + (pullRight.innerText || pullRight.textContent || '');
+            }
+        }
+        const attM = statsText.match(/Cr\.?\s*Att\s*:\s*([\d.]+)/i);
+        const erndM = statsText.match(/Cr\.?\s*Ernd\s*:\s*([\d.]+)/i);
+        if (attM) portalCrAtt = parseFloat(attM[1]);
+        if (erndM) portalCrErnd = parseFloat(erndM[1]);
+
+        const sem = { name: semName, courses: [], portalCrAtt, portalCrErnd };
         
         for (let i = headerRowIdx + 1; i < rows.length; i++) {
             const cells = rows[i].querySelectorAll('td');
             if (cells.length < 5) continue;
 
             const getCell = (name) => {
-                const idx = hCells.indexOf(name);
+                let idx = hCells.indexOf(name);
                 if (idx === -1) {
-                    // Fallbacks if exactly "course name" or "crdhrs" aren't found
+                    // Fallbacks if exactly "course name", "crdhrs", "type", or "remarks" aren't found
                     if (name === 'course name') {
-                        const fallIdx = hCells.findIndex(h => h.includes('course'));
-                        return fallIdx !== -1 ? cells[fallIdx]?.textContent.trim() : '';
+                        idx = hCells.findIndex(h => h.includes('course'));
+                    } else if (name === 'crdhrs') {
+                        idx = hCells.findIndex(h => h.includes('cr'));
+                    } else if (name === 'type') {
+                        idx = hCells.findIndex(h => h.includes('type'));
+                    } else if (name === 'remarks') {
+                        idx = hCells.findIndex(h => h.includes('remark'));
                     }
-                    if (name === 'crdhrs') {
-                        const fallIdx = hCells.findIndex(h => h.includes('cr'));
-                        return fallIdx !== -1 ? cells[fallIdx]?.textContent.trim() : '';
-                    }
-                    return '';
                 }
-                return cells[idx]?.textContent.trim() || '';
+                if (idx === -1) return '';
+                return cells[idx]?.textContent.replace(/\s+/g, ' ').trim() || '';
             };
 
             const code = getCell('code');
